@@ -133,28 +133,27 @@ def getPlatform():
 
 
 def getMemory():
-    if getPlatform() == 'linux':
-        ok, out = run("sh -c 'cat /proc/meminfo | grep MemTotal'")
-        if ok != 0:
-            return -1
+    platform = getPlatform()
+
+    if platform == 'linux':
+        rc, out = run("sh -c 'cat /proc/meminfo | grep MemTotal'")
+        if rc != 0:
+            return None
         word_list = out.strip().split(' ')
         val = int(word_list[len(word_list) - 2])
         factor = word_list[len(word_list) - 1]
         if factor == 'kB':
-            return val * 1024
-        else:
-            return -1
+            return val * 1024 if val else None
 
-    elif getPlatform() == 'darwin':
-        ok, out = run("/usr/sbin/sysctl hw.physmem")
-        if ok != 0:
-            return -1
+    if platform == 'darwin':
+        rc, out = run("/usr/sbin/sysctl hw.physmem")
+        if rc != 0:
+            return None
         word_list = out.strip().split(' ')
         val = int(word_list[1])
-        return val
+        return val if val else None
 
-    else:
-        return -1
+    return None
 
 
 def parseMemorySize(line):
@@ -264,10 +263,10 @@ def parseCommandLine():
 
     if GV.opt['-S'] == 0:
         system_mem_size = getMemory()
-        if system_mem_size == -1:
-            sys.exit('[Error] Unable to get system memory size. Instead, you can use the -S option to provide the file size value.')
-        else:
+        if system_mem_size is not None:
             GV.opt['-S'] = 2 * system_mem_size / len(GV.opt['-d'])
+        else:
+            sys.exit('[Error] could not get system memory size. Instead, you can use the -S option to provide the file size value')
 
     else:
         GV.opt['-S'] /= len(GV.opt['-d'])
