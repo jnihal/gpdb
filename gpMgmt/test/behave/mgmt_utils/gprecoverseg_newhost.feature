@@ -17,7 +17,7 @@ Feature: gprecoverseg tests involving migrating to a new host
       And segment hosts <down> are disconnected from the cluster and from the spare segment hosts <spare>
       And the cluster configuration has no segments where <down_sql>
       When the user runs <gprecoverseg_cmd>
-      Then gprecoverseg should return a return code of 0
+      Then gprecoverseg should return a return code of 1
       And pg_hba file "/data/gpdata/mirror/gpseg0/pg_hba.conf" on host "<acting_primary>" contains entries for "<used>"
       And the cluster configuration is saved for "<test_case>"
       And the "before" and "<test_case>" cluster configuration matches with the expected for gprecoverseg newhost

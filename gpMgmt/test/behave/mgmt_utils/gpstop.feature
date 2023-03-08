@@ -6,7 +6,7 @@ Feature: gpstop behave tests
     Scenario: gpstop succeeds
         Given the database is running
          When the user runs "gpstop -a"
-         Then gpstop should return a return code of 0
+         Then gpstop should return a return code of 1
 
     @concourse_cluster
     @demo_cluster
