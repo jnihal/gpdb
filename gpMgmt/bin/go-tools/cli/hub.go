@@ -126,11 +126,12 @@ func RunInstall(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-
-	err = utils.NewLinuxOS().EnableSystemdUserServices(serviceUser)
-	if err != nil {
-		return err
-	}
+	
+	// This step is not required. Needs to be reviewed
+	// err = utils.NewLinuxOS().EnableSystemdUserServices(serviceUser)
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -143,10 +144,10 @@ func CreateConfigFile(caCertPath, caKeyPath, serverCertPath, serverKeyPath strin
 		return fmt.Errorf("Could not generate configuration file: %w", err)
 	}
 	configHandle, err := os.OpenFile(configFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	defer configHandle.Close()
 	if err != nil {
 		return fmt.Errorf("Could not create configuration file %s: %w\n", configFilePath, err)
 	}
+	defer configHandle.Close()
 	_, err = configHandle.Write(configContents)
 	if err != nil {
 		return fmt.Errorf("Could not write to configuration file %s: %w\n", configFilePath, err)

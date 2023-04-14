@@ -2,13 +2,14 @@ package utils
 
 import (
 	"fmt"
-	"github.com/greenplum-db/gpdb/gp/idl"
 	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/greenplum-db/gpdb/gp/idl"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 )
@@ -37,6 +38,8 @@ func (d *darwinOS) GenerateServiceFileContents(which string, gphome string, serv
     <string>/tmp/grpc_%[1]s.log</string>
     <key>EnvironmentVariables</key>
     <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>GPHOME</key>
         <string>%[2]s</string>
     </dict>
@@ -81,27 +84,28 @@ func (d *darwinOS) CreateAndInstallAgentServiceFile(hostnames []string, gphome s
 	defer os.Remove(localAgentServiceFilePath)
 
 	remoteAgentServiceFilePath := fmt.Sprintf("%s/%s_agent.plist", serviceDir, serviceName)
-	remoteCmdHosts := make([]string, 0)
+	hostList := make([]string, 0)
 	for _, host := range hostnames {
-		remoteCmdHosts = append(remoteCmdHosts, "-h", host)
+		hostList = append(hostList, "-h", host)
 	}
-	remoteCmd := append(remoteCmdHosts, localAgentServiceFilePath, fmt.Sprintf("=:%s", remoteAgentServiceFilePath))
-	err = exec.Command("gpsync", remoteCmd...).Run()
+	remoteCmd := append(hostList, localAgentServiceFilePath, fmt.Sprintf("=:%s", remoteAgentServiceFilePath))
+	err = exec.Command("/bin/bash", "-c", fmt.Sprintf("source %s/greenplum_path.sh; gpsync %s", gphome, strings.Join(remoteCmd, " "))).Run()
 	if err != nil {
 		return fmt.Errorf("Could not copy agent service files to segment hosts: %w", err)
 	}
 
 	// Unload the file first to remove any previous configuration
-	remoteCmd = append(remoteCmdHosts, "launchctl", "load", fmt.Sprintf("%s/%s_agent.plist", serviceDir, serviceName))
-	err = exec.Command(fmt.Sprintf("%s/bin/gpssh", gphome), remoteCmd...).Run()
+	remoteCmd = append(hostList, "launchctl", "unload", fmt.Sprintf("%s/%s_agent.plist", serviceDir, serviceName))
+	err = exec.Command("/bin/bash", "-c", fmt.Sprintf("source %s/greenplum_path.sh; gpssh %s", gphome, strings.Join(remoteCmd, " "))).Run()
 	if err != nil {
 		return fmt.Errorf("Could not unload agent service file %s: %w", remoteAgentServiceFilePath, err)
 	}
-
-	err = exec.Command(fmt.Sprintf("%s/bin/gpssh", gphome), remoteCmd...).Run()
+	remoteCmd = append(hostList, "launchctl", "load", fmt.Sprintf("%s/%s_agent.plist", serviceDir, serviceName))
+	err = exec.Command("/bin/bash", "-c", fmt.Sprintf("source %s/greenplum_path.sh; gpssh %s", gphome, strings.Join(remoteCmd, " "))).Run()
 	if err != nil {
 		return fmt.Errorf("Could not load agent service file %s: %w", remoteAgentServiceFilePath, err)
 	}
+
 	gplog.Info("Wrote agent service file to %s on segment hosts", remoteAgentServiceFilePath)
 	return nil
 }
