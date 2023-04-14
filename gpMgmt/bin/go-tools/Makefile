@@ -21,7 +21,7 @@ depend-dev:
 	go install github.com/golang/protobuf/protoc-gen-go@v1.3.2
 	go install github.com/golang/mock/mockgen@v1.6.0
 
-build: proto
+build:
 	$(BUILD_ENV) go build -o gp $(BUILD_FLAGS) github.com/greenplum-db/gpdb/gp
 
 proto:
