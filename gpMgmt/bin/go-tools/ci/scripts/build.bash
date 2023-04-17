@@ -34,7 +34,7 @@ ssh -n cdw "
     make install
     source /usr/local/greenplum-db-devel/greenplum_path.sh
     gpsync -f /tmp/hostfile_all /usr/local/greenplum-db-devel/bin/gp =:/usr/local/greenplum-db-devel/bin/gp
-    gpssh -f /tmp/hostfile_all mkdir /tmp/certificates
-    gpsync -f /tmp/hostfile_all certificates =:/tmp/certificates
+    gpsync -a -f /tmp/hostfile_all certificates =:/tmp/
     gp install --hostfile /tmp/hostfile_all --server-certificate /tmp/certificates/server-cert.pem --server-key /tmp/certificates/server-key.pem --ca-certificate /tmp/certificates/ca-cert.pem --ca-key /tmp/certificates/ca-key.pem
+    sdffd
 "

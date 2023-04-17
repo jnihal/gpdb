@@ -185,8 +185,8 @@ func (s *Server) DialAllAgents() error {
 			return fmt.Errorf("Could not load credentials: %w", err)
 		}
 
-		//address := fmt.Sprintf("%s:%d", host, s.AgentPort)
-		address := fmt.Sprintf("localhost:%d", s.AgentPort)
+		address := fmt.Sprintf("%s:%d", host, s.AgentPort)
+		// address := fmt.Sprintf("localhost:%d", s.AgentPort)
 		conn, err := s.grpcDialer(ctx, address,
 			grpc.WithBlock(),
 			grpc.WithTransportCredentials(credentials),

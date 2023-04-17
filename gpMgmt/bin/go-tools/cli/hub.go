@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -153,6 +154,18 @@ func CreateConfigFile(caCertPath, caKeyPath, serverCertPath, serverKeyPath strin
 		return fmt.Errorf("Could not write to configuration file %s: %w\n", configFilePath, err)
 	}
 	gplog.Info("Wrote configuration file to %s", configFilePath)
+	
+	hostList := make([]string, 0)
+	for _, host := range hostnames {
+		hostList = append(hostList, "-h", host)
+	}
+	remoteCmd := append(hostList, configFilePath, fmt.Sprintf("=:%s", configFilePath))
+	err = exec.Command("/bin/bash", "-c", fmt.Sprintf("source %s/greenplum_path.sh; gpsync %s", gphome, strings.Join(remoteCmd, " "))).Run()
+	if err != nil {
+		return fmt.Errorf("Could not copy gp.conf file to segment hosts: %w", err)
+	}
+	gplog.Info("Copied gp.conf file to segment hosts")
+	
 	return nil
 }
 
