@@ -5,7 +5,8 @@ set -eux -o pipefail
 ccp_src/scripts/setup_ssh_to_cluster.sh
 
 scp cluster_env_files/hostfile_all cdw:/tmp
-scp gp_binary/gp cdw:/home/gpadmin/
+tar -xzf gp_binary/gp.tgz
+scp gp cdw:/home/gpadmin/
 
 
 # Install patchelf. We need to SSH as root, hence the use of
