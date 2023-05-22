@@ -1438,6 +1438,8 @@ transformGpPartDefElemWithRangeSpec(ParseState *pstate, Relation parentrel, GpPa
 						parser_errposition(pstate, boundspec->location)));
 		every = linitial(boundspec->partEvery);
 	}
+	else if (boundspec->partEvery)
+		new_boundspec->partEvery = NIL;
 
 	part_col_typid = get_partition_col_typid(partkey, 0);
 	part_col_typmod = get_partition_col_typmod(partkey, 0);
