@@ -439,7 +439,7 @@ class LocalExecutionContext(ExecutionContext):
         self.stdin = stdin
         pass
 
-    def execute(self, cmd, wait=True):
+    def execute(self, cmd, wait=True, preexec_fn=None):
         # prepend env. variables from ExcecutionContext.propagate_env_map
         # e.g. Given {'FOO': 1, 'BAR': 2}, we'll produce "FOO=1 BAR=2 ..."
 
@@ -451,6 +451,7 @@ class LocalExecutionContext(ExecutionContext):
         # executable='/bin/bash' is to ensure the shell is bash.  bash isn't the
         # actual command executed, but the shell that command string runs under.
         self.proc = gpsubprocess.Popen(cmd.cmdStr, env=None, shell=True,
+                                       preexec_fn=preexec_fn,
                                        executable='/bin/bash',
                                        stdin=subprocess.PIPE,
                                        stderr=subprocess.PIPE,
@@ -489,7 +490,7 @@ class RemoteExecutionContext(LocalExecutionContext):
         else:
             self.gphome = GPHOME
 
-    def execute(self, cmd):
+    def execute(self, cmd, preexec_fn=None):
         # prepend env. variables from ExcecutionContext.propagate_env_map
         # e.g. Given {'FOO': 1, 'BAR': 2}, we'll produce "FOO=1 BAR=2 ..."
         self.__class__.trail.add(self.targetHost)
@@ -505,7 +506,7 @@ class RemoteExecutionContext(LocalExecutionContext):
                      "{targethost} \"{gphome} {cmdstr}\"".format(targethost=self.targetHost,
                                                                  gphome=". %s/greenplum_path.sh;" % self.gphome,
                                                                  cmdstr=cmd.cmdStr)
-        LocalExecutionContext.execute(self, cmd)
+        LocalExecutionContext.execute(self, cmd, preexec_fn=preexec_fn)
         if (cmd.get_results().stderr.startswith('ssh_exchange_identification: Connection closed by remote host')):
             self.__retry(cmd)
         pass
@@ -527,13 +528,14 @@ class Command(object):
     exec_context = None
     propagate_env_map = {}  # specific environment variables for this command instance
 
-    def __init__(self, name, cmdStr, ctxt=LOCAL, remoteHost=None, stdin=None, gphome=None):
+    def __init__(self, name, cmdStr, ctxt=LOCAL, remoteHost=None, stdin=None, gphome=None, preexec_fn=None):
         self.name = name
         self.cmdStr = cmdStr
         self.exec_context = createExecutionContext(ctxt, remoteHost, stdin=stdin,
                                                    gphome=gphome)
         self.remoteHost = remoteHost
         self.logger = gplog.get_default_logger()
+        self.preexec_fn = preexec_fn
 
     def __str__(self):
         if self.results:
@@ -546,14 +548,14 @@ class Command(object):
     def runNoWait(self):
         faultPoint = os.getenv('GP_COMMAND_FAULT_POINT')
         if not faultPoint or (self.name and not self.name.startswith(faultPoint)):
-            self.exec_context.execute(self, wait=False)
+            self.exec_context.execute(self, wait=False, preexec_fn=self.preexec_fn)
             return self.exec_context.proc
 
     def run(self, validateAfter=False):
         self.logger.debug("Running Command: %s" % self.cmdStr)
         faultPoint = os.getenv('GP_COMMAND_FAULT_POINT')
         if not faultPoint or (self.name and not self.name.startswith(faultPoint)):
-            self.exec_context.execute(self)
+            self.exec_context.execute(self, preexec_fn=self.preexec_fn)
         else:
             # simulate error
             self.results = CommandResult(1, 'Fault Injection', 'Fault Injection', False, True)
