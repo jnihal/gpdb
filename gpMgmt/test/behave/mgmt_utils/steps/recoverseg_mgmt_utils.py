@@ -380,7 +380,6 @@ def impl(context, original_host, new_host, user_termination):
     Then gprecoverseg should return a return code of 1
     And user can start transactions
     And gprecoverseg should print "Initiating segment recovery." to stdout
-    And gprecoverseg should print "pg_basebackup: could not access directory" to stdout for mirrors with content {content_ids}
     And gprecoverseg should print "Failed to recover the following segments" to stdout
     And verify that mirror on content {content_ids} is down
     And gprecoverseg should print "gprecoverseg failed. Please check the output" to stdout
@@ -388,8 +387,8 @@ def impl(context, original_host, new_host, user_termination):
     '''.format(content_ids=content_id_str))
 
     if user_termination == "without":
-        context.execute_steps('''
-        Then gprecoverseg should print "pg_basebackup: error: could not access directory" to stdout for mirrors with content {content_ids}
+        context.execute_steps(u'''
+        Then gprecoverseg should print "pg_basebackup: could not access directory" to stdout for mirrors with content {content_ids}
         '''.format(content_ids=content_id_str))
 
     #TODO add this step
