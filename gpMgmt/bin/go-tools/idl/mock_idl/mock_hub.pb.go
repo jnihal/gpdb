@@ -36,6 +36,26 @@ func (m *MockHubClient) EXPECT() *MockHubClientMockRecorder {
 	return m.recorder
 }
 
+// DummyHub mocks base method.
+func (m *MockHubClient) DummyHub(arg0 context.Context, arg1 *idl.DummyHubRequest, arg2 ...grpc.CallOption) (idl.Hub_DummyHubClient, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DummyHub", varargs...)
+	ret0, _ := ret[0].(idl.Hub_DummyHubClient)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DummyHub indicates an expected call of DummyHub.
+func (mr *MockHubClientMockRecorder) DummyHub(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyHub", reflect.TypeOf((*MockHubClient)(nil).DummyHub), varargs...)
+}
+
 // StartAgents mocks base method.
 func (m *MockHubClient) StartAgents(arg0 context.Context, arg1 *idl.StartAgentsRequest, arg2 ...grpc.CallOption) (*idl.StartAgentsReply, error) {
 	m.ctrl.T.Helper()
@@ -137,6 +157,20 @@ func NewMockHubServer(ctrl *gomock.Controller) *MockHubServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockHubServer) EXPECT() *MockHubServerMockRecorder {
 	return m.recorder
+}
+
+// DummyHub mocks base method.
+func (m *MockHubServer) DummyHub(arg0 *idl.DummyHubRequest, arg1 idl.Hub_DummyHubServer) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DummyHub", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DummyHub indicates an expected call of DummyHub.
+func (mr *MockHubServerMockRecorder) DummyHub(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyHub", reflect.TypeOf((*MockHubServer)(nil).DummyHub), arg0, arg1)
 }
 
 // StartAgents mocks base method.

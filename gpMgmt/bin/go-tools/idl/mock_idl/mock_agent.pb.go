@@ -36,6 +36,46 @@ func (m *MockAgentClient) EXPECT() *MockAgentClientMockRecorder {
 	return m.recorder
 }
 
+// DummyAgent mocks base method.
+func (m *MockAgentClient) DummyAgent(ctx context.Context, in *idl.DummyAgentRequest, opts ...grpc.CallOption) (*idl.DummyAgentResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DummyAgent", varargs...)
+	ret0, _ := ret[0].(*idl.DummyAgentResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DummyAgent indicates an expected call of DummyAgent.
+func (mr *MockAgentClientMockRecorder) DummyAgent(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyAgent", reflect.TypeOf((*MockAgentClient)(nil).DummyAgent), varargs...)
+}
+
+// DummyAgentParallel mocks base method.
+func (m *MockAgentClient) DummyAgentParallel(ctx context.Context, in *idl.DummyAgentParallelRequest, opts ...grpc.CallOption) (*idl.DummyAgentResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DummyAgentParallel", varargs...)
+	ret0, _ := ret[0].(*idl.DummyAgentResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DummyAgentParallel indicates an expected call of DummyAgentParallel.
+func (mr *MockAgentClientMockRecorder) DummyAgentParallel(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyAgentParallel", reflect.TypeOf((*MockAgentClient)(nil).DummyAgentParallel), varargs...)
+}
+
 // Status mocks base method.
 func (m *MockAgentClient) Status(ctx context.Context, in *idl.StatusAgentRequest, opts ...grpc.CallOption) (*idl.StatusAgentReply, error) {
 	m.ctrl.T.Helper()
@@ -97,6 +137,36 @@ func NewMockAgentServer(ctrl *gomock.Controller) *MockAgentServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAgentServer) EXPECT() *MockAgentServerMockRecorder {
 	return m.recorder
+}
+
+// DummyAgent mocks base method.
+func (m *MockAgentServer) DummyAgent(arg0 context.Context, arg1 *idl.DummyAgentRequest) (*idl.DummyAgentResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DummyAgent", arg0, arg1)
+	ret0, _ := ret[0].(*idl.DummyAgentResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DummyAgent indicates an expected call of DummyAgent.
+func (mr *MockAgentServerMockRecorder) DummyAgent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyAgent", reflect.TypeOf((*MockAgentServer)(nil).DummyAgent), arg0, arg1)
+}
+
+// DummyAgentParallel mocks base method.
+func (m *MockAgentServer) DummyAgentParallel(arg0 context.Context, arg1 *idl.DummyAgentParallelRequest) (*idl.DummyAgentResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DummyAgentParallel", arg0, arg1)
+	ret0, _ := ret[0].(*idl.DummyAgentResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DummyAgentParallel indicates an expected call of DummyAgentParallel.
+func (mr *MockAgentServerMockRecorder) DummyAgentParallel(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyAgentParallel", reflect.TypeOf((*MockAgentServer)(nil).DummyAgentParallel), arg0, arg1)
 }
 
 // Status mocks base method.

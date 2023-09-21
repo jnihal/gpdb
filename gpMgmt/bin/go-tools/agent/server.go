@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/greenplum-db/gpdb/gp/idl"
 	"github.com/greenplum-db/gpdb/gp/utils"
+	"github.com/greenplum-db/gpdb/gp/utils/errorlist"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -91,11 +94,50 @@ func (s *Server) Shutdown() {
 
 func (s *Server) Status(ctx context.Context, in *idl.StatusAgentRequest) (*idl.StatusAgentReply, error) {
 	status, err := s.GetStatus()
+	time.Sleep(time.Second * 5)
 	if err != nil {
 		return &idl.StatusAgentReply{}, fmt.Errorf("Could not get agent status: %w", err)
 	}
 
 	return &idl.StatusAgentReply{Status: status.Status, Uptime: status.Uptime, Pid: uint32(status.Pid)}, nil
+}
+
+func (s *Server) DummyAgent(ctx context.Context, in *idl.DummyAgentRequest) (*idl.DummyAgentResponse, error) {
+	cmd := exec.Command("/usr/local/gpdb/bin/initdb", "-D", fmt.Sprintf("/tmp/testrpc/%d", in.Value))
+	err := cmd.Run()
+	if err != nil {
+		return &idl.DummyAgentResponse{}, err
+	}
+
+	return &idl.DummyAgentResponse{Out: fmt.Sprintf("Done %d", in.Value)}, nil
+}
+
+func (s *Server) DummyAgentParallel(ctx context.Context, in *idl.DummyAgentParallelRequest) (*idl.DummyAgentResponse, error) {
+	var wg sync.WaitGroup
+	errs := make(chan error, len(in.Values))
+	for _, x := range in.Values {
+		wg.Add(1)
+		go func(x uint32) {
+			defer wg.Done()
+			cmd := exec.Command("/usr/local/gpdb/bin/initdb", "-D", fmt.Sprintf("/tmp/testrpc/%d", x))
+			err := cmd.Run()
+			errs <- err
+		}(x)
+	}
+
+	wg.Wait()
+	close(errs)
+
+	var err error
+	for e := range errs {
+		err = errorlist.Append(err, e)
+	}
+
+	if err != nil {
+		return &idl.DummyAgentResponse{}, err
+	}
+
+	return &idl.DummyAgentResponse{Out: "Done for host"}, nil
 }
 
 func (s *Server) GetStatus() (*idl.ServiceStatus, error) {

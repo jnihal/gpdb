@@ -34,7 +34,7 @@ ssh -n cdw "
     gp status agents
     gp stop agents
     gp stop hub
-
+    wdsd
     # Run unit tests
     make test
 "

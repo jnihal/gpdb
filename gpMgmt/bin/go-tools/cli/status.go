@@ -3,11 +3,15 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"os"
 
 	"github.com/greenplum-db/gpdb/gp/hub"
 	"github.com/greenplum-db/gpdb/gp/idl"
 	"github.com/spf13/cobra"
+	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/decor"
 )
 
 var (
@@ -25,6 +29,7 @@ func statusCmd() *cobra.Command {
 	statusCmd.AddCommand(statusHubCmd())
 	statusCmd.AddCommand(statusAgentsCmd())
 	statusCmd.AddCommand(statusServicesCmd())
+	statusCmd.AddCommand(parallelAgentsCmd())
 
 	return statusCmd
 }
@@ -60,6 +65,17 @@ func statusAgentsCmd() *cobra.Command {
 	return statusAgentsCmd
 }
 
+func parallelAgentsCmd() *cobra.Command {
+	statusAgentsCmd := &cobra.Command{
+		Use:     "parallel",
+		Short:   "Display agents status",
+		PreRunE: InitializeCommand,
+		RunE:    RunParallelAgent,
+	}
+
+	return statusAgentsCmd
+}
+
 func statusServicesCmd() *cobra.Command {
 	statusServicesCmd := &cobra.Command{
 		Use:     "services",
@@ -75,6 +91,15 @@ func RunStatusAgent(cmd *cobra.Command, args []string) error {
 	err := ShowAgentsStatus(Conf, false)
 	if err != nil {
 		return fmt.Errorf("Could not retrieve agents status: %w", err)
+	}
+
+	return nil
+}
+
+func RunParallelAgent(cmd *cobra.Command, args []string) error {
+	err := RunParallelCmd(Conf)
+	if err != nil {
+		return fmt.Errorf("Could not run parallel: %w", err)
 	}
 
 	return nil
@@ -107,6 +132,69 @@ func ShowAgentsStatusFn(conf *hub.Config, skipHeader bool) error {
 	}
 	Platform.DisplayServiceStatus(os.Stdout, "Agent", reply.Statuses, skipHeader)
 
+	return nil
+}
+
+func RunParallelCmd(conf *hub.Config) error {
+	client, err := ConnectToHub(conf)
+	if err != nil {
+		return fmt.Errorf("Could not connect to hub; is the hub running? Error:%w", err)
+	}
+
+	req := idl.DummyHubRequest{}
+	for i := 1; i < 11; i++ {
+		req.Input = append(req.Input, &idl.DummyInput{Host: "sdw1", Value: uint32(i)})
+		req.Input = append(req.Input, &idl.DummyInput{Host: "sdw2", Value: uint32(i)})
+		req.Input = append(req.Input, &idl.DummyInput{Host: "sdw3", Value: uint32(i)})
+	}
+
+	reply, err := client.DummyHub(context.Background(), &req)
+	if err != nil {
+		return err
+	}
+	done := make(chan bool)
+
+	p := mpb.New(mpb.WithWidth(64))
+
+	total := len(req.Input)
+	name := "Initializing segments:"
+	// create a single bar, which will inherit container's width
+	bar := p.AddBar(int64(total),
+		// BarFillerBuilder with custom style
+		mpb.PrependDecorators(
+			// display our name with one space on the right
+			decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}),
+			
+			decor.CountersNoUnit("%d/%d"),
+			
+			// replace ETA decorator with "done" message, OnComplete event
+			decor.Elapsed(decor.ET_STYLE_GO, decor.WC{W: 4}),
+		),
+		mpb.AppendDecorators(
+			decor.OnComplete(
+				decor.Percentage(decor.WC{W: 4}), "done",
+			),
+		),
+	)
+
+	go func() {
+		for {
+			_, err := reply.Recv()
+			if err == io.EOF {
+				done <- true //means stream is finished
+				return
+			}
+			if err != nil {
+				log.Printf("cannot receive %v", err)
+			}
+			// log.Printf("Resp received: %s", resp.Out)
+			bar.Increment()
+		}
+	}()
+
+	<-done //we will wait until all response is received
+	p.Wait()
+	log.Printf("finished")
 	return nil
 }
 

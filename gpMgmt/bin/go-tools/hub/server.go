@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/greenplum-db/gpdb/gp/constants"
+	"github.com/greenplum-db/gpdb/gp/utils/errorlist"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpdb/gp/idl"
@@ -285,6 +287,88 @@ func (s *Server) StatusAgents(ctx context.Context, in *idl.StatusAgentsRequest) 
 
 	return &idl.StatusAgentsReply{Statuses: statuses}, err
 }
+
+func (s *Server) DummyHub(in *idl.DummyHubRequest, stream idl.Hub_DummyHubServer) error {
+	test := make(map[string][]uint32)
+	for _, input := range in.Input {
+		test[input.Host] = append(test[input.Host], input.Value)
+	}
+
+	err := s.DialAllAgents()
+	if err != nil {
+		return err
+	}
+
+	connMap := make(map[string]*Connection)
+	for _, conn := range s.Conns {
+		connMap[conn.Hostname] = conn
+	}
+
+	var wg sync.WaitGroup
+	errs := make(chan error, len(in.Input))
+	for _, x := range in.Input {
+		wg.Add(1)
+		go func(x *idl.DummyInput) {
+			defer wg.Done()
+			out, err := connMap[x.Host].AgentClient.DummyAgent(context.Background(), &idl.DummyAgentRequest{Value: x.Value})
+			if err := stream.Send(&idl.DummyHubResponse{Out: out.Out}); err != nil {
+				log.Printf("send error %v", err)
+			}
+			errs <- err
+		}(x)
+	}
+
+	wg.Wait()
+	close(errs)
+
+	err = nil
+	for e := range errs {
+		err = errorlist.Append(err, e)
+	}
+
+	return err
+}
+
+// func (s *Server) DummyHub(in *idl.DummyHubRequest, stream idl.Hub_DummyHubServer) error {
+// 	test := make(map[string][]uint32)
+// 	for _, input := range in.Input {
+// 		test[input.Host] = append(test[input.Host], input.Value)
+// 	}
+
+// 	err := s.DialAllAgents()
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	connMap := make(map[string]*Connection)
+// 	for _, conn := range s.Conns {
+// 		connMap[conn.Hostname] = conn
+// 	}
+
+// 	var wg sync.WaitGroup
+// 	errs := make(chan error, len(test))
+// 	for host, values := range test {
+// 		wg.Add(1)
+// 		go func(host string, values []uint32) {
+// 			defer wg.Done()
+// 			out, err := connMap[host].AgentClient.DummyAgentParallel(context.Background(), &idl.DummyAgentParallelRequest{Values: values})
+// 			if err := stream.Send(&idl.DummyHubResponse{Out: out.Out}); err != nil {
+// 				log.Printf("send error %v", err)
+// 			}
+// 			errs <- err
+// 		}(host, values)
+// 	}
+
+// 	wg.Wait()
+// 	close(errs)
+
+// 	err = nil
+// 	for e := range errs {
+// 		err = errorlist.Append(err, e)
+// 	}
+
+// 	return err
+// }
 
 func ensureConnectionsAreReady(conns []*Connection) error {
 	hostnames := []string{}

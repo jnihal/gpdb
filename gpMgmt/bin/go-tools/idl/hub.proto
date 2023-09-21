@@ -9,6 +9,20 @@ service Hub {
     rpc StartAgents(StartAgentsRequest) returns (StartAgentsReply) {}
     rpc StatusAgents(StatusAgentsRequest) returns (StatusAgentsReply) {}
     rpc StopAgents(StopAgentsRequest) returns (StopAgentsReply) {}
+	rpc DummyHub(DummyHubRequest) returns (stream DummyHubResponse) {}
+}
+
+message DummyHubRequest {
+	repeated DummyInput input = 1;
+}
+
+message DummyInput {
+	string host = 1;
+	uint32 value = 2;
+}
+
+message DummyHubResponse {
+	string out = 1;
 }
 
 message StopHubRequest {}
