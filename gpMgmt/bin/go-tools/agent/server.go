@@ -37,11 +37,6 @@ func (s *Server) StartSegment(ctx context.Context, request *idl.StartSegmentRequ
 	panic("implement me")
 }
 
-func (s *Server) MakeSegment(ctx context.Context, request *idl.MakeSegmentRequest) (*idl.MakeSegmentReply, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (s *Server) ValidateHostEnv(ctx context.Context, request *idl.ValidateHostEnvRequest) (*idl.ValidateHostEnvReply, error) {
 	err := s.ValidateHostEnvFn(request.DirectoryList, request.Forced)
 	return &idl.ValidateHostEnvReply{}, err

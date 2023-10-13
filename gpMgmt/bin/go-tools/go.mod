@@ -4,18 +4,17 @@ go 1.19
 
 require (
 	github.com/golang/mock v1.6.0
+	github.com/golang/protobuf v1.5.3
 	github.com/greenplum-db/gp-common-go-libs v1.0.11
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.16.0
 	google.golang.org/grpc v1.55.0
-	google.golang.org/protobuf v1.30.0
 )
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
@@ -43,6 +42,7 @@ require (
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
+	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

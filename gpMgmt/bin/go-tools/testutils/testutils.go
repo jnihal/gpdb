@@ -5,10 +5,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
+	"testing"
 
 	"github.com/greenplum-db/gpdb/gp/constants"
 	"github.com/greenplum-db/gpdb/gp/hub"
 	"github.com/greenplum-db/gpdb/gp/idl"
+	"github.com/onsi/gomega/gbytes"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -100,4 +103,15 @@ func (s *MockCredentials) SetCredsError(errMsg string) {
 }
 func (s *MockCredentials) ResetCredsError() {
 	s.Err = nil
+}
+
+func AssertLogMessage(t *testing.T, buffer *gbytes.Buffer, message string) {
+	pattern, err := regexp.Compile(message)
+	if err != nil {
+		t.Fatalf("unexpected error when compiling regex: %#v", err)
+	}
+	
+	if !pattern.MatchString(string(buffer.Contents())) {
+		t.Fatalf("expected pattern '%s' not found in log '%s'", message, buffer.Contents())
+	}
 }
