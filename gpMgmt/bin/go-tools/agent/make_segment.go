@@ -3,7 +3,9 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strconv"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpdb/gp/idl"
 	"github.com/greenplum-db/gpdb/gp/utils/postgres"
 )
@@ -23,13 +25,16 @@ func (s *Server) MakeSegment(ctx context.Context, req *idl.MakeSegmentRequest) (
 	if err != nil {
 		return &idl.MakeSegmentReply{}, fmt.Errorf("executing initdb: %s, %w", out, err)
 	}
-	
-	configParams := req.GetSegConfig()
-	configParams["port"] = string(req.Segment.GetPort())
+	gplog.Info(fmt.Sprintf("%s", req.SegConfig))
+	configParams := req.SegConfig
+	if configParams == nil {
+		configParams = make(map[string]string)
+	}
+	configParams["port"] = strconv.Itoa(int(req.Segment.GetPort()))
 	configParams["listen_addresses"] = "*"
 	configParams["log_statement"] = "all"
-	configParams["gp_contentid"] = string(req.Segment.GetContentid())
-
+	configParams["gp_contentid"] = strconv.Itoa(int(req.Segment.GetContentid()))
+	gplog.Info(fmt.Sprintf("%s", configParams))
 	err = postgres.UpdatePostgresqlConf(dataDirectory, configParams, false)
 	if err != nil {
 		return &idl.MakeSegmentReply{}, fmt.Errorf("updating postgresql.conf: %w", err)

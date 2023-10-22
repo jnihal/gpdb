@@ -37,14 +37,14 @@ func (m *MockHubClient) EXPECT() *MockHubClientMockRecorder {
 }
 
 // MakeCluster mocks base method.
-func (m *MockHubClient) MakeCluster(arg0 context.Context, arg1 *idl.MakeClusterRequest, arg2 ...grpc.CallOption) (*idl.MakeClusterReply, error) {
+func (m *MockHubClient) MakeCluster(arg0 context.Context, arg1 *idl.MakeClusterRequest, arg2 ...grpc.CallOption) (idl.Hub_MakeClusterClient, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "MakeCluster", varargs...)
-	ret0, _ := ret[0].(*idl.MakeClusterReply)
+	ret0, _ := ret[0].(idl.Hub_MakeClusterClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -160,12 +160,11 @@ func (m *MockHubServer) EXPECT() *MockHubServerMockRecorder {
 }
 
 // MakeCluster mocks base method.
-func (m *MockHubServer) MakeCluster(arg0 context.Context, arg1 *idl.MakeClusterRequest) (*idl.MakeClusterReply, error) {
+func (m *MockHubServer) MakeCluster(arg0 *idl.MakeClusterRequest, arg1 idl.Hub_MakeClusterServer) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeCluster", arg0, arg1)
-	ret0, _ := ret[0].(*idl.MakeClusterReply)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // MakeCluster indicates an expected call of MakeCluster.

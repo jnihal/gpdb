@@ -3,8 +3,9 @@ package hub
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/greenplum-db/gpdb/gp/common"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/greenplum-db/gpdb/gp/constants"
+	"golang.org/x/exp/maps"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpdb/gp/idl"
@@ -23,6 +25,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 	grpcStatus "google.golang.org/grpc/status"
 )
 
@@ -57,17 +60,111 @@ type Server struct {
 	finish     chan struct{}
 }
 
-func (s *Server) MakeCluster(ctx context.Context, request *idl.MakeClusterRequest) (*idl.MakeClusterReply, error) {
+func (s *Server) MakeCluster(request *idl.MakeClusterRequest, stream idl.Hub_MakeClusterServer) error {
 	//TODO implement me
+	gplog.Info(fmt.Sprintf("%s", request.ClusterParams.CommonConfig))
+	segmentArray := request.GetGpArray()
+	
+	hostSegmentMap := map[string][]idl.Segment{}
+	for _, segment := range segmentArray.GetPrimaries() {
+		
+		segmentReq := idl.Segment{
+			Port: segment.GetPort(),
+			DataDirectory: segment.GetDataDirectory(),
+			HostName: segment.GetHostName(),
+			HostAddress: segment.GetHostAddress(),
+			Contentid: segment.GetContentid(),
+			Dbid: segment.GetDbid(),
+		}
+		if _, ok := hostSegmentMap[segment.HostName]; !ok {
+			hostSegmentMap[segment.HostName] = []idl.Segment{
+				segmentReq,
+			}
+		} else {
+			hostSegmentMap[segment.HostName] = append(hostSegmentMap[segment.HostName], segmentReq)
+		}
+	}
+	
+	configParams := make(map[string]string)
+	maps.Copy(configParams, request.ClusterParams.CommonConfig)
+	maps.Copy(configParams, request.ClusterParams.SegmentConfig)
+	
+	req := func(conn *Connection) error {
+		segments := hostSegmentMap[conn.Hostname]
+		var wg sync.WaitGroup
+		errs := make(chan error, len(segments))
+		
+		for _, seg := range segments {
+			seg := seg
+			wg.Add(1)
+			go func(seg *idl.Segment) {
+				defer wg.Done()
+				makeSegmentReq := &idl.MakeSegmentRequest{
+					Segment: seg,
+					Locale: request.GetClusterParams().GetLocale(),
+					Encoding: request.ClusterParams.Encoding,
+					HbaHostNames: request.ClusterParams.HbaHostnames,
+					SegConfig: configParams,
+				}
 
-	var clusterParams common.ClusterParams
-	var gparray common.GpArray
-	clusterParams.LoadFromIdl(request.ClusterParams)
-	gparray.LoadFromIdl(request.GpArray)
+				_, err := conn.AgentClient.MakeSegment(context.Background(), makeSegmentReq)
+				if err != nil {
+					errs <- FormatGRPCError(err)
+				} else {
+					reply := &idl.MakeClusterReply{
+						Message: &idl.MakeClusterReply_ProgressMessage{
+							ProgressMessage: &idl.ProgressMessage{
+								Label: "Initializing segments: ",
+							},
+						},
+					}
+					if err := stream.Send(reply); err != nil {
+						log.Printf("send error %v", err)
+					}
+				}
+			}(&seg)
+		}
+		
+		wg.Wait()
+		close(errs)
+		
+		var err error
+		for e := range errs {
+			err = errors.Join(err, e)
+		}
+		return err
+	}
 
-	err := s.MakeActualCluster(gparray, clusterParams, request.ForceFlag)
+	err := s.DialAllAgents()
+	if err != nil {
+		return err
+	}
+	
+	reply := &idl.MakeClusterReply{
+		Message: &idl.MakeClusterReply_ProgressMessage{
+			ProgressMessage: &idl.ProgressMessage{
+				Label: "Initializing segments: ",
+			},
+		},
+	}
+	if err := stream.Send(reply); err != nil {
+		log.Printf("send error %v", err)
+	}
+	
+	err = ExecuteRPC(s.Conns, req)
+	if err != nil {
+		gplog.Info("return from here")
+		return err
+	}
+	
+	// var clusterParams common.ClusterParams
+	// var gparray common.GpArray
+	// clusterParams.LoadFromIdl(request.ClusterParams)
+	// gparray.LoadFromIdl(request.GpArray)
 
-	return &idl.MakeClusterReply{}, err
+	// err := s.MakeActualCluster(gparray, clusterParams, request.ForceFlag)
+
+	return err
 }
 
 type Connection struct {
@@ -326,7 +423,9 @@ func ExecuteRPC(agentConns []*Connection, executeRequest func(conn *Connection) 
 		go func() {
 			defer wg.Done()
 			err := executeRequest(conn)
-			errs <- err
+			if err != nil {
+				errs <- fmt.Errorf("host %s: %w", conn.Hostname, FormatGRPCError(err))
+			}
 		}()
 	}
 
@@ -335,8 +434,7 @@ func ExecuteRPC(agentConns []*Connection, executeRequest func(conn *Connection) 
 
 	var err error
 	for e := range errs {
-		err = e
-		break
+		err = errors.Join(err, e)
 	}
 
 	return err
@@ -403,6 +501,21 @@ func copyConfigFileToAgents(conf *Config, ConfigFilePath string) error {
 	}
 
 	return nil
+}
+
+func FormatGRPCError(err error) error {
+    if err == nil {
+        return nil
+    }
+
+    statusErr, ok := status.FromError(err)
+    if ok {
+        errorDescription := statusErr.Message()
+        return fmt.Errorf(errorDescription)
+    }
+
+    // If it's not a gRPC error, return the original error
+    return err
 }
 
 // used only for testing

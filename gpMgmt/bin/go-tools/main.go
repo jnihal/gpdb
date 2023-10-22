@@ -6,6 +6,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpdb/gp/cli"
+	"github.com/greenplum-db/gpdb/gp/hub"
 )
 
 func main() {
@@ -14,6 +15,7 @@ func main() {
 	root.SilenceErrors = true
 
 	err := root.Execute()
+	err = hub.FormatGRPCError(err)
 	if err != nil {
 		// gplog is initialised in the PreRun function in cobra and sometimes when the
 		// error is due to the input flags, the cobra pkg would not run the PreRun function.
