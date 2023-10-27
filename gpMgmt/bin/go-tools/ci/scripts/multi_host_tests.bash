@@ -26,6 +26,6 @@ ssh -n cdw "
     cd /home/gpadmin/gpdb_src/gpMgmt/bin/go-tools
     ./ci/scripts/generate_ssl_cert_multi_host.bash
 
-    # Run integration tests for multi host
-    make integration-test MODE=MultiHost
+    # Run integration tests for multi host with host file
+    make integration-test FILE=/tmp/hostfile_all
 "

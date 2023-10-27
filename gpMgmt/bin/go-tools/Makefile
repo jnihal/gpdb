@@ -105,4 +105,8 @@ uninstall:
 TEST_PACKAGES := ./test/integration/...
 integration-test: TEST_PACKAGES := $(shell go list ./test/integration/...)
 integration-test:
-	go test -v -count=1 $(TEST_PACKAGES) -timeout 0 -p 1 -run $(MODE);
+    ifeq ($(FILE),)
+	    go test -v -count=1 $(TEST_PACKAGES) -timeout 0 -p 1
+    else
+	    go test -v -count=1 $(TEST_PACKAGES) -timeout 0 -p 1 -args -hostfile=$(FILE)
+    endif

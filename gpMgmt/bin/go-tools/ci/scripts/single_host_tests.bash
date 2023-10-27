@@ -27,5 +27,5 @@ ssh -n cdw "
     ./ci/scripts/generate_ssl_cert_multi_host.bash
 
     # Run integration tests for single host
-    make integration-test MODE=SingleHost
+    make integration-test
 "

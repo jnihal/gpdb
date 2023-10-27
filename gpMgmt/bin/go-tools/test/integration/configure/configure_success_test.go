@@ -1,325 +1,436 @@
 package configure
 
 import (
-	"github.com/greenplum-db/gpdb/gp/hub"
+	"fmt"
+	"github.com/greenplum-db/gpdb/gp/constants"
 	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
 	"github.com/greenplum-db/gpdb/gp/utils"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
 
-type ConfigureSuccessTC struct {
-	name             string
-	cliParams        []string
-	logFile          string
-	expectedOut      []string
-	serviceDir       string
-	configFile       string
-	skipSvcFileCheck bool
-	verifyConfig     func(config hub.Config) hub.Config
-	IsSingleNode     bool
-	IsMultiNode      bool
+func TestConfigureHelp(t *testing.T) {
+	Testcases := []struct {
+		name        string
+		cliParams   []string
+		expectedOut []string
+	}{
+		{
+			name:        "service configure shows help with --help",
+			cliParams:   []string{"--help"},
+			expectedOut: helpTxt,
+		},
+		{
+			name:        "service configure shows help with -h",
+			cliParams:   []string{"-h"},
+			expectedOut: helpTxt,
+		},
+	}
+	for _, tc := range Testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Running the gp configure command with help options
+			result, err := testutils.RunConfigure(tc.cliParams...)
+			// check for command result
+			if err != nil {
+				t.Errorf("\nUnexpected error: %#v", err)
+			}
+			if result.ExitCode != 0 {
+				t.Errorf("\nExpected: %v \nGot: %v", 0, result.ExitCode)
+			}
+			for _, item := range tc.expectedOut {
+				if !strings.Contains(result.OutputMsg, item) {
+					t.Errorf("\nExpected string: %#v \nNot found in: %#v", item, result.OutputMsg)
+				}
+			}
+		})
+	}
 }
 
-// positive test cases
-var ConfigureSuccessTestcases = []ConfigureSuccessTC{
-	{
-		name: "configure service with comma separated hosts in --host option",
-		cliParams: []string{
-			"--host", "cdw",
-			"--host", "sdw1",
-			"--host", "sdw2",
-			"--host", "sdw3",
-		},
-		expectedOut: successOutput,
-		configFile:  testutils.DefaultConfigurationFile,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			return testgpConf
-		},
-		IsMultiNode: true,
-	},
-	{
-		name: "configure service with --host option",
-		cliParams: []string{
-			"--host", testutils.DefaultHost,
-		},
-		configFile: testutils.DefaultConfigurationFile,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			return testgpConf
-		},
-		expectedOut:  successOutput,
-		IsSingleNode: true,
-	},
-	{
-		name:             "service configure shows help with --help",
-		cliParams:        []string{"--help"},
-		expectedOut:      helpTxt,
-		skipSvcFileCheck: true,
-		IsMultiNode:      true,
-		IsSingleNode:     true,
-	},
-	{
-		name:             "service configure shows help with -h",
-		cliParams:        []string{"-h"},
-		expectedOut:      helpTxt,
-		skipSvcFileCheck: true,
-		IsMultiNode:      true,
-		IsSingleNode:     true,
-	},
-	{
-		name: "configure service with --hostfile option",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
-		},
-		expectedOut: successOutput,
-		configFile:  testutils.DefaultConfigurationFile,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with host and agent_port option",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
-			"--agent-port", "8001"},
-		expectedOut: successOutput,
-		configFile:  testutils.DefaultConfigurationFile,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			testgpConf.AgentPort = 8001
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with host and hub_port option",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
-			"--hub-port", "8001"},
-		expectedOut: successOutput,
-		configFile:  testutils.DefaultConfigurationFile,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			testgpConf.Port = 8001
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with --service-user option",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
-			"--service-user", os.Getenv("USER")},
-		expectedOut: successOutput,
-		configFile:  testutils.DefaultConfigurationFile,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with server and client certificates",
-		cliParams: []string{
+func TestConfigureSuccess(t *testing.T) {
+	hosts := testutils.GetHostListFromFile(*hostfile)
+	agentFile := fmt.Sprintf("%s/%s_%s.%s", defaultServiceDir, constants.DefaultServiceName, "agent", serviceExt)
+	hubFile := fmt.Sprintf("%s/%s_%s.%s", defaultServiceDir, constants.DefaultServiceName, "hub", serviceExt)
+
+	t.Run("configure service with --host option", func(t *testing.T) {
+		var cliParams []string
+		for _, h := range hosts {
+			cliParams = append(cliParams, "--host", h)
+		}
+
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+
+	})
+
+	t.Run("configure service with --hostfile option", func(t *testing.T) {
+		cliParams := []string{"--hostfile", *hostfile}
+
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+
+	})
+
+	t.Run("configure service with host and agent_port option", func(t *testing.T) {
+		cliParams := []string{
+			"--hostfile", *hostfile,
+			"--agent-port", "8001",
+		}
+
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		testConfig.AgentPort = 8001
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure service with host and hub_port option", func(t *testing.T) {
+		cliParams := []string{
+			"--hostfile", *hostfile,
+			"--hub-port", "8001",
+		}
+
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		testConfig.Port = 8001
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure service with --service-user option", func(t *testing.T) {
+		cliParams := []string{
+			"--hostfile", *hostfile,
+			"--service-user", os.Getenv("USER")}
+
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure service with server and client certificates", func(t *testing.T) {
+		cliParams := []string{
 			"--ca-certificate", "/tmp/certificates/ca-cert.pem",
 			"--ca-key", "/tmp/certificates/ca-key.pem",
 			"--server-certificate", "/tmp/certificates/server-cert.pem",
 			"--server-key", "/tmp/certificates/server-key.pem",
-			"--hostfile", testutils.Hostfile,
-		},
-		configFile:  testutils.DefaultConfigurationFile,
-		expectedOut: successOutput,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			cred := &utils.GpCredentials{
-				CACertPath:     "/tmp/certificates/ca-cert.pem",
-				CAKeyPath:      "/tmp/certificates/ca-key.pem",
-				ServerCertPath: "/tmp/certificates/server-cert.pem",
-				ServerKeyPath:  "/tmp/certificates/server-key.pem",
-			}
-			testgpConf.Credentials = cred
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with verbose option",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
+			"--hostfile", *hostfile,
+		}
+
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		cred := &utils.GpCredentials{
+			CACertPath:     "/tmp/certificates/ca-cert.pem",
+			CAKeyPath:      "/tmp/certificates/ca-key.pem",
+			ServerCertPath: "/tmp/certificates/server-cert.pem",
+			ServerKeyPath:  "/tmp/certificates/server-key.pem",
+		}
+		testConfig.Credentials = cred
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure service with verbose option", func(t *testing.T) {
+		cliParams := []string{
+			"--hostfile", *hostfile,
 			"--verbose",
-		},
-		configFile:  testutils.DefaultConfigurationFile,
-		expectedOut: successOutput,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with config-file option",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
-			"--config-file", "/tmp/gp.conf",
-		},
-		configFile:  "/tmp/gp.conf",
-		expectedOut: successOutput,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with changing gphome value",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
+		}
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure service with config-file option", func(t *testing.T) {
+		configFile := "/tmp/gp.conf"
+		cliParams := []string{
+			"--hostfile", *hostfile,
+			"--config-file", configFile,
+		}
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(configFile)
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(configFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure service with changing gphome value", func(t *testing.T) {
+		cliParams := []string{
+			"--hostfile", *hostfile,
 			"--gphome", os.Getenv("GPHOME"),
-		},
-		configFile:  testutils.DefaultConfigurationFile,
-		expectedOut: successOutput,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with log_dir option",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
-			"--log-dir", "/tmp",
-		},
-		logFile:     "/tmp/gp_configure.log",
-		configFile:  testutils.DefaultConfigurationFile,
-		expectedOut: successOutput,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			testgpConf.LogDir = "/tmp"
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with service-dir option",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
-			"--service-dir", "/tmp",
-		},
-		configFile:  testutils.DefaultConfigurationFile,
-		expectedOut: successOutput,
-		serviceDir:  "/tmp",
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure create service directory if directory given in service-dir option doesn't exist",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
-			"--service-dir", "/tmp/ServiceDir",
-		},
-		configFile:  testutils.DefaultConfigurationFile,
-		expectedOut: successOutput,
-		serviceDir:  "/tmp/ServiceDir",
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-	{
-		name: "configure service with service-name option",
-		cliParams: []string{
-			"--hostfile", testutils.Hostfile,
-			"--service-name", "dummySvc",
-		},
-		configFile:  testutils.DefaultConfigurationFile,
-		expectedOut: successOutput,
-		verifyConfig: func(testgpConf hub.Config) hub.Config {
-			testgpConf.ServiceName = "dummySvc"
-			return testgpConf
-		},
-		IsMultiNode:  true,
-		IsSingleNode: true,
-	},
-}
-
-func TestSingleHostConfigureSuccess(t *testing.T) {
-	host := testutils.DefaultHost
-	testutils.CreateHostfile([]byte(host))
-
-	for _, tc := range ConfigureSuccessTestcases {
-		if tc.IsSingleNode {
-			t.Run(tc.name, func(t *testing.T) {
-				runSuccessTestcases(t, tc)
-				config := testutils.ParseConfig(tc.configFile)
-				if tc.verifyConfig != nil {
-					// check for configuration changes
-					testConfig := defaultGPConf
-					testConfig.Hostnames = []string{host}
-					testutils.EqualValues(t, config, tc.verifyConfig(testConfig))
-				}
-				if !tc.skipSvcFileCheck {
-					// check if service files are created
-					tc.serviceDir = testutils.SetDefault(tc.serviceDir, defaultServiceDir)
-					agentFile := testutils.GenerateFilePath(tc.serviceDir, config.ServiceName, serviceExt, "agent")
-					hubFile := testutils.GenerateFilePath(tc.serviceDir, config.ServiceName, serviceExt, "hub")
-					testutils.ServiceFilesExist(t, tc.configFile, tc.logFile, agentFile, hubFile)
-
-					// clean up files after each test cases
-					testutils.CleanupFiles(tc.configFile, tc.logFile, agentFile, hubFile)
-				}
-			})
 		}
-	}
-}
 
-func TestMultiHostConfigureSuccess(t *testing.T) {
-	testutils.CreateHostfile([]byte(testutils.MultiHosts))
-
-	for _, tc := range ConfigureSuccessTestcases {
-		if tc.IsMultiNode {
-			t.Run(tc.name, func(t *testing.T) {
-				runSuccessTestcases(t, tc)
-				config := testutils.ParseConfig(tc.configFile)
-				if tc.verifyConfig != nil {
-					// check for configuration changes
-					testConfig := defaultGPConf
-					testConfig.Hostnames = strings.Split(testutils.MultiHosts, "\n")
-					testutils.EqualValues(t, tc.verifyConfig(testConfig), config)
-				}
-				if !tc.skipSvcFileCheck {
-					// check if service files are created
-					tc.serviceDir = testutils.SetDefault(tc.serviceDir, defaultServiceDir)
-					agentFile := testutils.GenerateFilePath(tc.serviceDir, config.ServiceName, serviceExt, "agent")
-					hubFile := testutils.GenerateFilePath(tc.serviceDir, config.ServiceName, serviceExt, "hub")
-					testutils.ServiceFilesExist(t, agentFile, hubFile)
-					testutils.SvcFilesExistsOnRemoteHosts(t, agentFile, strings.Split(testutils.MultiHosts, "\n")[1:])
-
-					// clean up files after each test cases
-					testutils.CleanupFiles(tc.configFile, tc.logFile, agentFile, hubFile)
-					testutils.CleanupSvcFilesOnRemoteHosts(agentFile, strings.Split(testutils.MultiHosts, "\n")[1:])
-				}
-			})
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
 		}
-	}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure service with log_dir option", func(t *testing.T) {
+		logDir := "/tmp/log"
+		_ = os.MkdirAll(logDir, 0777)
+		logFile := fmt.Sprintf("%s/gp_configure.log", logDir)
+
+		cliParams := []string{
+			"--hostfile", *hostfile,
+			"--log-dir", logDir,
+		}
+
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		testConfig.LogDir = logDir
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		testutils.FilesExistOnHub(t, hubFile, logFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, logFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure service with service-dir option", func(t *testing.T) {
+		serviceDir := "/tmp"
+		cliParams := []string{
+			"--hostfile", *hostfile,
+			"--service-dir", serviceDir,
+		}
+
+		runConfigureAndCheckOutput(t, cliParams)
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		agentFile := fmt.Sprintf("%s/%s_%s.%s", serviceDir, config.ServiceName, "agent", serviceExt)
+		hubFile := fmt.Sprintf("%s/%s_%s.%s", serviceDir, config.ServiceName, "hub", serviceExt)
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure create service directory if directory given in service-dir option doesn't exist", func(t *testing.T) {
+		serviceDir := "/tmp/ServiceDir"
+		cliParams := []string{
+			"--hostfile", *hostfile,
+			"--service-dir", serviceDir,
+		}
+
+		runConfigureAndCheckOutput(t, cliParams)
+
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		agentFile := fmt.Sprintf("%s/%s_%s.%s", serviceDir, config.ServiceName, "agent", serviceExt)
+		hubFile := fmt.Sprintf("%s/%s_%s.%s", serviceDir, config.ServiceName, "hub", serviceExt)
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
+
+	t.Run("configure service with service-name option", func(t *testing.T) {
+		svcName := "dummySvc"
+		cliParams := []string{
+			"--hostfile", *hostfile,
+			"--service-name", svcName,
+		}
+
+		runConfigureAndCheckOutput(t, cliParams)
+
+		// verify generated configuration
+		testConfig := defaultGPConf
+		testConfig.Hostnames = hosts
+		config := testutils.ParseConfig(testutils.DefaultConfigurationFile)
+		testConfig.ServiceName = svcName
+		if !reflect.DeepEqual(testConfig, config) {
+			t.Errorf("\nExpected: %v \nGot: %v",
+				testutils.StructToString(testConfig),
+				testutils.StructToString(config))
+		}
+
+		// check if log file and service files are created
+		agentFile := fmt.Sprintf("%s/%s_%s.%s", defaultServiceDir, config.ServiceName, "agent", serviceExt)
+		hubFile := fmt.Sprintf("%s/%s_%s.%s", defaultServiceDir, config.ServiceName, "hub", serviceExt)
+		testutils.FilesExistOnHub(t, hubFile, defaultLogFile)
+		testutils.FilesExistsOnAgents(t, agentFile, hosts)
+
+		// clean up files after each test cases
+		testutils.CleanupFilesOnHub(testutils.DefaultConfigurationFile, defaultLogFile, hubFile)
+		testutils.CleanupFilesOnAgents(agentFile, hosts)
+	})
 }
 
-func runSuccessTestcases(t *testing.T, tc ConfigureSuccessTC) {
-	// Running the gp configure command
-	out, rc, err := testutils.RunConfigure(tc.cliParams...)
+func runConfigureAndCheckOutput(t *testing.T, input []string) {
+	// Running the gp configure command with input params
+	result, err := testutils.RunConfigure(input...)
 	// check for command result
-	testutils.Equal(t, nil, err)
-	testutils.Equal(t, 0, rc)
-	testutils.Contains(t, tc.expectedOut, out)
-
-	// check if log file is created
-	tc.logFile = testutils.SetDefault(tc.logFile, defaultLogFile)
-	testutils.FileExists(t, tc.logFile)
+	if err != nil {
+		t.Errorf("\nUnexpected error: %#v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Errorf("\nExpected: %v \nGot: %v", 0, result.ExitCode)
+	}
+	for _, item := range expectedOutput {
+		if !strings.Contains(result.OutputMsg, item) {
+			t.Errorf("\nExpected string: %#v \nNot found in: %#v", item, result.OutputMsg)
+		}
+	}
 }

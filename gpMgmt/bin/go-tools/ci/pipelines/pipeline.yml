@@ -161,6 +161,7 @@ groups:
       - lint
       - build
       - run_tests
+      - integration_tests
 
 jobs:
   - name: lint

@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"github.com/greenplum-db/gpdb/gp/constants"
@@ -22,14 +23,15 @@ type Command struct {
 	args   []string
 }
 
-const (
-	Hostfile  = "hostlist"
-	ExitCode1 = 1
-)
+type CmdResult struct {
+	OutputMsg string
+	ExitCode  int
+}
 
-func RunConfigure(params ...string) (string, int, error) {
+const ExitCode1 = 1
+
+func RunConfigure(params ...string) (CmdResult, error) {
 	params = append([]string{"configure"}, params...)
-
 	genCmd := Command{
 		cmdStr: constants.DefaultServiceName,
 		args:   params,
@@ -37,7 +39,7 @@ func RunConfigure(params ...string) (string, int, error) {
 	return runCmd(genCmd)
 }
 
-func RunStart(params ...string) (string, int, error) {
+func RunStart(params ...string) (CmdResult, error) {
 	params = append([]string{"start"}, params...)
 	genCmd := Command{
 		cmdStr: constants.DefaultServiceName,
@@ -46,7 +48,7 @@ func RunStart(params ...string) (string, int, error) {
 	return runCmd(genCmd)
 }
 
-func RunStop(params ...string) (string, int, error) {
+func RunStop(params ...string) (CmdResult, error) {
 	params = append([]string{"stop"}, params...)
 	genCmd := Command{
 		cmdStr: constants.DefaultServiceName,
@@ -55,7 +57,7 @@ func RunStop(params ...string) (string, int, error) {
 	return runCmd(genCmd)
 }
 
-func RunStatus(params ...string) (string, int, error) {
+func RunStatus(params ...string) (CmdResult, error) {
 	params = append([]string{"status"}, params...)
 	genCmd := Command{
 		cmdStr: constants.DefaultServiceName,
@@ -64,7 +66,8 @@ func RunStatus(params ...string) (string, int, error) {
 	return runCmd(genCmd)
 }
 
-func ParseConfig(configFile string) (gpConfig hub.Config) {
+func ParseConfig(configFile string) hub.Config {
+	gpConfig := hub.Config{}
 	gpConfig.Credentials = &utils.GpCredentials{}
 	config, _ := os.Open(configFile)
 	defer config.Close()
@@ -82,34 +85,18 @@ func SetDefault(value, defaultValue string) string {
 	return value
 }
 
-func CleanupFiles(files ...string) {
+func CleanupFilesOnHub(files ...string) {
 	for _, f := range files {
 		_ = os.RemoveAll(f)
 	}
 }
 
-func CleanupSvcFilesOnRemoteHosts(file string, hosts []string) {
-	genCmd := Command{
-		cmdStr: fmt.Sprintf("rm -rf %s && echo $?", file),
-	}
+func CleanupFilesOnAgents(file string, hosts []string) {
+	cmdStr := fmt.Sprintf("/bin/bash -c 'rm -rf %s && echo $?'", file)
 	for _, host := range hosts {
-		genCmd.host = host
-		_, _, _ = runCmd(genCmd)
+		cmd := exec.Command("ssh", host, cmdStr)
+		_, _ = cmd.CombinedOutput()
 	}
-}
-
-func GenerateFilePath(serviceDir, serviceName, serviceExt, fileType string) string {
-	return fmt.Sprintf("%s/%s_%s.%s", serviceDir, serviceName, fileType, serviceExt)
-}
-
-func CreateHostfile(content []byte) {
-	_ = os.WriteFile(Hostfile, content, 0644)
-}
-
-func GetRootDir() string {
-	currentDir, _ := os.Getwd()
-	relativeParentPath := "../../.."
-	return filepath.Join(currentDir, relativeParentPath)
 }
 
 func CpCfgWithoutCertificates(name string) error {
@@ -141,7 +128,7 @@ func extractPID(outMessage string) string {
 	return "0"
 }
 
-func runCmd(cmd Command) (string, int, error) {
+func runCmd(cmd Command) (CmdResult, error) {
 	var cmdObj *exec.Cmd
 	if cmd.host == "" || cmd.host == DefaultHost {
 		cmdObj = exec.Command(cmd.cmdStr, cmd.args...)
@@ -151,7 +138,12 @@ func runCmd(cmd Command) (string, int, error) {
 	}
 
 	out, err := cmdObj.CombinedOutput()
-	return string(out), cmdObj.ProcessState.ExitCode(), err
+	result := CmdResult{
+		OutputMsg: string(out),
+		ExitCode:  cmdObj.ProcessState.ExitCode(),
+	}
+
+	return result, err
 }
 
 func GetServiceDetails(p utils.Platform) (string, string, string) {
@@ -172,7 +164,7 @@ func UnloadSvcFile(cmd string, file string) {
 	} else {
 		genCmd.args = []string{"disable", file}
 	}
-	_, _, _ = runCmd(genCmd)
+	_, _ = runCmd(genCmd)
 }
 
 func DisableandDeleteServiceFiles(p utils.Platform) {
@@ -191,7 +183,7 @@ func GetSvcFiles(svcDir string, svcExtention string) []string {
 }
 
 func InitService(hostfile string, params []string) {
-	_, _, _ = RunConfigure(append(
+	_, _ = RunConfigure(append(
 		[]string{
 			"--hostfile", hostfile,
 		},
@@ -212,7 +204,7 @@ func CopyFile(src, dest string) error {
 	return nil
 }
 
-func GetSvcStatusOnHost(p utils.GpPlatform, serviceName string, host string) (string, int, error) {
+func GetSvcStatusOnHost(p utils.GpPlatform, serviceName string, host string) (CmdResult, error) {
 	args := []string{p.UserArg, p.StatusArg, serviceName}
 
 	if p.OS == "darwin" {
@@ -229,7 +221,6 @@ func GetSvcStatusOnHost(p utils.GpPlatform, serviceName string, host string) (st
 
 func GetListeningProcess(port int, host string) string {
 	time.Sleep(10 * time.Second)
-
 	var output string
 	if host == DefaultHost || host == "" {
 		cmd := exec.Command("lsof", fmt.Sprintf("-i:%d", port))
@@ -240,7 +231,8 @@ func GetListeningProcess(port int, host string) string {
 			cmdStr: fmt.Sprintf("lsof -i:%d", port),
 			host:   host,
 		}
-		output, _, _ = runCmd(genCmd)
+		result, _ := runCmd(genCmd)
+		output = result.OutputMsg
 	}
 
 	return extractPID(output)
@@ -301,4 +293,18 @@ func structToString(value reflect.Value, indentLevel int) string {
 
 	result += "}"
 	return result
+}
+
+func GetHostListFromFile(hostfile string) []string {
+	file, _ := os.Open(hostfile)
+	defer file.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	return lines
 }
