@@ -1,0 +1,38 @@
+{
+  "cluster-name":"GPDB",
+  "encoding":"Unicode",
+  "hba-hostnames":true,
+  "su-password":"gparray",
+  "locale":{
+    "lc-all":"en_US.UTF-8",
+    "lc-collate":"en_US.UTF-8",
+    "lc-ctype":"en_US.UTF-8",
+    "lc-messages":"en_US.UTF-8",
+    "lc-monetary":"en_US.UTF-8",
+    "lc-numeric":"en_US.UTF-8",
+    "lc-time":"en_US.UTF-8"
+  },
+  "common-config":{
+    "shared_buffers":"128000kB"
+  },
+  "coordinator-config":{
+    "max_connections":50
+  },
+  "segment-config":{
+    "max_connections":150,
+    "debug_pretty_print":"off",
+    "log_min_messages":"warning"
+  },
+  "coordinator":{
+    "hostname":"",
+    "address":"",
+    "port":"",
+    "data-directory":""
+  },
+  "primary-segments-array":[
+    { "hostname":"", "address":"", "port":"", "data-directory":"" },
+    { "hostname":"", "address":"", "port":"", "data-directory":"" },
+    { "hostname":"", "address":"", "port":"", "data-directory":"" },
+    { "hostname":"", "address":"", "port":"", "data-directory":"" }
+  ]
+}
