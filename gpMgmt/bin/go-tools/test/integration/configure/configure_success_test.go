@@ -2,13 +2,14 @@ package configure
 
 import (
 	"fmt"
-	"github.com/greenplum-db/gpdb/gp/constants"
-	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
-	"github.com/greenplum-db/gpdb/gp/utils"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/greenplum-db/gpdb/gp/constants"
+	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
+	"github.com/greenplum-db/gpdb/gp/utils"
 )
 
 func TestConfigureHelp(t *testing.T) {
@@ -31,7 +32,7 @@ func TestConfigureHelp(t *testing.T) {
 	for _, tc := range Testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Running the gp configure command with help options
-			result, err := testutils.RunConfigure(tc.cliParams...)
+			result, err := testutils.RunConfigure(false, tc.cliParams...)
 			// check for command result
 			if err != nil {
 				t.Errorf("\nUnexpected error: %#v", err)
@@ -420,7 +421,7 @@ func TestConfigureSuccess(t *testing.T) {
 
 func runConfigureAndCheckOutput(t *testing.T, input []string) {
 	// Running the gp configure command with input params
-	result, err := testutils.RunConfigure(input...)
+	result, err := testutils.RunConfigure(true, input...)
 	// check for command result
 	if err != nil {
 		t.Errorf("\nUnexpected error: %#v", err)

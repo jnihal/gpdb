@@ -2,10 +2,11 @@ package start
 
 import (
 	"flag"
-	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
-	"github.com/greenplum-db/gpdb/gp/utils"
 	"os"
 	"testing"
+
+	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
+	"github.com/greenplum-db/gpdb/gp/utils"
 )
 
 var (

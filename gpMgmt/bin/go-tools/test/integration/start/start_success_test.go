@@ -1,11 +1,12 @@
 package start
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/greenplum-db/gpdb/gp/constants"
 	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
 	"github.com/greenplum-db/gpdb/gp/utils"
-	"strings"
-	"testing"
 )
 
 func TestStartSuccess(t *testing.T) {
@@ -50,12 +51,10 @@ func TestStartSuccess(t *testing.T) {
 	})
 
 	t.Run("start hub after gp configure with --service-name param", func(t *testing.T) {
-		_, _ = testutils.RunConfigure(append(
-			[]string{
+		_, _ = testutils.RunConfigure(true, []string{
 				"--hostfile", *hostfile,
 				"--service-name", "dummySvc",
-			},
-			testutils.CertificateParams...)...)
+			}...)
 
 		cliParams := []string{"services"}
 		expectedOut := []string{

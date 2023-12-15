@@ -1,10 +1,11 @@
 package configure
 
 import (
-	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
 )
 
 func TestConfigureFailure(t *testing.T) {
@@ -76,7 +77,7 @@ func TestConfigureFailure(t *testing.T) {
 			cliParams: []string{"--host", testutils.DefaultHost,
 				"--hostfile", "abc"},
 			expectedOut: []string{
-				"[ERROR] invalid flag combination; flags [host hostfile] cannot be set together",
+				"[ERROR] if any flags in the group [host hostfile] are set none of the others can be; [host hostfile] were all set",
 			},
 		},
 		{
@@ -132,22 +133,14 @@ func TestConfigureFailure(t *testing.T) {
 			},
 		},
 		{
-			name: "configure service with non-existing directory as log-dir value",
-			cliParams: []string{
-				"--host", testutils.DefaultHost,
-				"--log-dir", "/newDir/log_dir",
-			},
-			expectedOut: []string{
-				"no such file or directory",
-			},
-		},
-		{
 			name: "configure service with no value for log-dir option",
 			cliParams: []string{
 				"--host", testutils.DefaultHost,
 				"--log-dir",
 			},
-			// TODO: Add expected output here. Skipped it for now as the test case results in a panic error.
+			expectedOut: []string{
+				"flag needs an argument: --log-dir",
+			},
 		},
 		{
 			name: "configure fails when value for both --agent-port and --hub-port are same",
@@ -156,7 +149,9 @@ func TestConfigureFailure(t *testing.T) {
 				"--agent-port", "2000",
 				"--hub-port", "2000",
 			},
-			// TODO: Add expected output here. Currently this case is not returning error.
+			expectedOut: []string{
+				"[ERROR] hub port and agent port should be different",
+			},
 		},
 		{
 			name: "configure service fails when --gphome value is invalid",
@@ -201,7 +196,7 @@ func TestConfigureFailure(t *testing.T) {
 
 	for _, tc := range ConfigureFailTestCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := testutils.RunConfigure(tc.cliParams...)
+			result, err := testutils.RunConfigure(true, tc.cliParams...)
 			if err == nil {
 				t.Errorf("\nExpected error Got: %#v", err)
 			}

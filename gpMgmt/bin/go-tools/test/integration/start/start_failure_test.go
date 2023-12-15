@@ -1,10 +1,11 @@
 package start
 
 import (
-	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
 )
 
 func TestStartFailWithoutConfig(t *testing.T) {
@@ -49,14 +50,33 @@ func TestStartFailWithoutConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("starting hub without certificates", func(t *testing.T) {
+		testutils.InitService(*hostfile, testutils.CertificateParams)
+		_ = testutils.CpCfgWithoutCertificates(configCopy)
+
+		expectedOut := "error while loading server certificate"
+
+		result, err := testutils.RunStart("hub", "--config-file", configCopy)
+		if err == nil {
+			t.Errorf("\nExpected error Got: %#v", err)
+		}
+		if result.ExitCode != testutils.ExitCode1 {
+			t.Errorf("\nExpected: %#v \nGot: %v", testutils.ExitCode1, result.ExitCode)
+		}
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
+		}
+
+	})
+
 	t.Run("starting agents without certificates", func(t *testing.T) {
 		testutils.InitService(*hostfile, testutils.CertificateParams)
 		_ = testutils.CpCfgWithoutCertificates(configCopy)
 
-		cliParams := []string{"agents", "--config-file", configCopy}
 		expectedOut := "error while loading server certificate"
 
-		result, err := testutils.RunStart(cliParams...)
+		// start agents
+		result, err := testutils.RunStart("agents", "--config-file", configCopy)
 		if err == nil {
 			t.Errorf("\nExpected error Got: %#v", err)
 		}
@@ -69,39 +89,13 @@ func TestStartFailWithoutConfig(t *testing.T) {
 
 	})
 
-	t.Run("starting services without ca-certificates", func(t *testing.T) {
-		_, _ = testutils.RunConfigure(append(
-			[]string{
-				"--hostfile", *hostfile,
-			},
-			testutils.CertificateParams[4:]...)...)
-
-		expectedOut := "error while loading certificate"
-
-		// start agents
-		result, err := testutils.RunStart("agents")
-		if err == nil {
-			t.Errorf("\nExpected error Got: %#v", err)
-		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %#v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
-		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
-		}
-
-	})
-
-	t.Run("starting services without server-certificates", func(t *testing.T) {
-		_, _ = testutils.RunConfigure(append(
-			[]string{
-				"--hostfile", *hostfile,
-			},
-			testutils.CertificateParams[:4]...)...)
+	t.Run("starting services without certificates", func(t *testing.T) {
+		testutils.InitService(*hostfile, testutils.CertificateParams)
+		_ = testutils.CpCfgWithoutCertificates(configCopy)
 
 		expectedOut := "error while loading server certificate"
 		// start agents
-		result, err := testutils.RunStart("agents")
+		result, err := testutils.RunStart("services", "--config-file", configCopy)
 		if err == nil {
 			t.Errorf("\nExpected error Got: %#v", err)
 		}
@@ -152,6 +146,7 @@ func TestStartGlobalFlagsFailures(t *testing.T) {
 
 	for _, tc := range failTestCases {
 		t.Run(tc.name, func(t *testing.T) {
+			testutils.DisableandDeleteServiceFiles(p)
 			testutils.InitService(*hostfile, testutils.CertificateParams)
 
 			result, err := testutils.RunStart(tc.cliParams...)

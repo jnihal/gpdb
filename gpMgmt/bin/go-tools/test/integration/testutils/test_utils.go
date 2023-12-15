@@ -4,9 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/greenplum-db/gpdb/gp/constants"
-	"github.com/greenplum-db/gpdb/gp/hub"
-	"github.com/greenplum-db/gpdb/gp/utils"
 	"io"
 	"os"
 	"os/exec"
@@ -15,6 +12,10 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/greenplum-db/gpdb/gp/constants"
+	"github.com/greenplum-db/gpdb/gp/hub"
+	"github.com/greenplum-db/gpdb/gp/utils"
 )
 
 type Command struct {
@@ -30,11 +31,19 @@ type CmdResult struct {
 
 const ExitCode1 = 1
 
-func RunConfigure(params ...string) (CmdResult, error) {
-	params = append([]string{"configure"}, params...)
+func RunConfigure(useCert bool, params ...string) (CmdResult, error) {
+	var args []string
+
+	if useCert {
+		args = append([]string{"configure"}, CertificateParams...)
+		args = append(args, params...)
+	} else {
+		args = append([]string{"configure"}, params...)
+	}
+
 	genCmd := Command{
 		cmdStr: constants.DefaultServiceName,
-		args:   params,
+		args:   args,
 	}
 	return runCmd(genCmd)
 }
@@ -162,7 +171,7 @@ func UnloadSvcFile(cmd string, file string) {
 		genCmd.args = []string{"unload", file}
 
 	} else {
-		genCmd.args = []string{"disable", file}
+		genCmd.args = []string{"--user" ,"stop", file}
 	}
 	_, _ = runCmd(genCmd)
 }
@@ -171,7 +180,7 @@ func DisableandDeleteServiceFiles(p utils.Platform) {
 	serviceDir, serviceExt, serviceCmd := GetServiceDetails(p)
 	filesToUnload := GetSvcFiles(serviceDir, serviceExt)
 	for _, filePath := range filesToUnload {
-		UnloadSvcFile(serviceCmd, filePath)
+		UnloadSvcFile(serviceCmd, filepath.Base(filePath))
 		_ = os.RemoveAll(filePath)
 	}
 }
@@ -183,7 +192,7 @@ func GetSvcFiles(svcDir string, svcExtention string) []string {
 }
 
 func InitService(hostfile string, params []string) {
-	_, _ = RunConfigure(append(
+	_, _ = RunConfigure(false, append(
 		[]string{
 			"--hostfile", hostfile,
 		},

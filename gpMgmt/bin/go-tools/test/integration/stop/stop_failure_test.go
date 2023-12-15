@@ -175,6 +175,7 @@ func TestStopFailsWithoutCertificates(t *testing.T) {
 	}
 	for _, tc := range TestCases {
 		t.Run(tc.name, func(t *testing.T) {
+			testutils.InitService(*hostfile, testutils.CertificateParams)
 			_, _ = testutils.RunStart("services")
 			_ = testutils.CpCfgWithoutCertificates(configCopy)
 
