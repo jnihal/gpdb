@@ -4,9 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/greenplum-db/gpdb/gp/constants"
-	"github.com/greenplum-db/gpdb/gp/hub"
-	"github.com/greenplum-db/gpdb/gp/utils"
 	"io"
 	"os"
 	"os/exec"
@@ -15,6 +12,10 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/greenplum-db/gpdb/gp/constants"
+	"github.com/greenplum-db/gpdb/gp/hub"
+	"github.com/greenplum-db/gpdb/gp/utils"
 )
 
 type Command struct {
@@ -29,6 +30,38 @@ type CmdResult struct {
 }
 
 const ExitCode1 = 1
+
+func ConfigureAndStartServices(hostfile string) error {
+	result, err := RunConfigure("--ca-certificate", "/tmp/certificates/ca-cert.pem",
+		"--ca-key", "/tmp/certificates/ca-key.pem",
+		"--server-certificate", "/tmp/certificates/server-cert.pem",
+		"--server-key", "/tmp/certificates/server-key.pem",
+		"--hostfile", hostfile)
+	if err != nil {
+		return fmt.Errorf("failed to configure the services: %v, %v", result.OutputMsg, err)
+	}
+	
+	result, err = RunStart("services")
+	if err != nil {
+		return fmt.Errorf("failed to start the services: %v, %v", result.OutputMsg, err)
+	}
+	
+	startTime := time.Now()
+	timeout := 10 * time.Second
+
+	for {
+		result, err := RunStatus("services")
+		if err == nil {
+			return nil
+		}
+
+		if time.Since(startTime) >= timeout {
+			return fmt.Errorf("failed to configure services after %v seconds: %v, %v", timeout, result.OutputMsg, err)
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+}
 
 func RunConfigure(params ...string) (CmdResult, error) {
 	params = append([]string{"configure"}, params...)

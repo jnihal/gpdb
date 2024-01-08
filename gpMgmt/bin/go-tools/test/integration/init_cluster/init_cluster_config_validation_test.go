@@ -1,38 +1,33 @@
-package initcluster
+package init_cluster
 
 import (
 	"fmt"
-	"github.com/greenplum-db/gpdb/gp/cli"
-	"github.com/greenplum-db/gpdb/gp/test/testutils"
-	"github.com/spf13/viper"
 	"os"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/greenplum-db/gpdb/gp/cli"
+	"github.com/greenplum-db/gpdb/gp/test/testutils"
+	"github.com/spf13/viper"
 )
 
 func TestInputFileValidation(t *testing.T) {
 	configFile := "/tmp/config.json"
-	_, _ = testutils.RunConfigure("--ca-certificate", "/tmp/certificates/ca-cert.pem",
-		"--ca-key", "/tmp/certificates/ca-key.pem",
-		"--server-certificate", "/tmp/certificates/server-cert.pem",
-		"--server-key", "/tmp/certificates/server-key.pem",
-		"--hostfile", *hostfile)
-	_, _ = testutils.RunStart("services")
-	time.Sleep(5 * time.Second)
+	
+	err := testutils.ConfigureAndStartServices(*hostfile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	t.Run("cluster creation fails when provided input file doesn't exist", func(t *testing.T) {
 		result, err := testutils.RunInitCluster("non_existing_file.json")
-		fmt.Println(result, err)
-		expectedOut := "non_existing_file.json: no such file or directory"
 		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
+			t.Errorf("expected error, got nil")
 		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
+
+		expectedOut := "[ERROR]:-stat non_existing_file.json: no such file or directory"
 		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
 
 	})

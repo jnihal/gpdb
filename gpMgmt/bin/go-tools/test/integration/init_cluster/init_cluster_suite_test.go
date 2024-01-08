@@ -1,18 +1,18 @@
-package initcluster
+package init_cluster
 
 import (
 	"flag"
+	"os"
+	"testing"
+
 	"github.com/greenplum-db/gpdb/gp/cli"
 	"github.com/greenplum-db/gpdb/gp/test/testutils"
 	"github.com/spf13/viper"
-	"os"
-	"testing"
 )
 
 var (
 	currentHost     string
 	defaultConfig   cli.InitConfig
-	dataDirRoot     = "/tmp/demo"
 	dataDirectories = []string{"/tmp/demo/0", "/tmp/demo/1", "/tmp/demo/2", "/tmp/demo/3"}
 	hostfile        = flag.String("hostfile", "", "file containing list of hosts")
 	hostList        []string
@@ -21,7 +21,6 @@ var (
 func init() {
 	currentHost, _ = os.Hostname()
 	viper.SetConfigFile("sampleConfig.json")
-	viper.SetConfigType("json")
 	viper.SetDefault("common-config", make(map[string]string))
 	viper.SetDefault("coordinator-config", make(map[string]string))
 	viper.SetDefault("segment-config", make(map[string]string))
@@ -58,6 +57,7 @@ func init() {
 	viper.Set("coordinator", defaultConfig.Coordinator)
 	viper.Set("primary-segments-array", defaultConfig.PrimarySegmentsArray)
 }
+
 func TestMain(m *testing.M) {
 	flag.Parse()
 	// if hostfile is not provided as input argument, create it with default host
@@ -67,7 +67,7 @@ func TestMain(m *testing.M) {
 
 	} else {
 		hostList = testutils.GetHostListFromFile(*hostfile)
-		for i, _ := range defaultConfig.PrimarySegmentsArray {
+		for i := range defaultConfig.PrimarySegmentsArray {
 			defaultConfig.PrimarySegmentsArray[i].Hostname = hostList[i+1]
 			defaultConfig.PrimarySegmentsArray[i].Address = hostList[i+1]
 		}
