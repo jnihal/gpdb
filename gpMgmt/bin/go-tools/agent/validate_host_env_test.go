@@ -102,7 +102,7 @@ func TestValidatePgVersionFn(t *testing.T) {
 		defer utils.ResetSystemFunctions()
 
 		err := agent.ValidatePgVersionFn("expected-version", "gphome")
-		expectedStr := "etching postgres gp-version:exit status 1"
+		expectedStr := "fetching postgres gp-version: exit status 1"
 		if err == nil || !strings.Contains(err.Error(), expectedStr) {
 			t.Fatalf("expected error:`%s`, got error:`%s`", expectedStr, err)
 		}
@@ -145,18 +145,18 @@ func PgVersionCmd() {
 func TestValidatePortList(t *testing.T) {
 	testhelper.SetupTestLogger()
 	t.Run("returns no error when ports are not in use", func(t *testing.T) {
-		testPort := []int32{11456, 11457, 11458}
+		testPort := []string{":11456", ":11457", ":11458"}
 		err := agent.ValidatePortList(testPort)
 		if err != nil {
 			t.Fatalf("got %v, expected no error", err)
 		}
 	})
 	t.Run("returns error when ports are in use", func(t *testing.T) {
-		testPort := []int32{11456, 11457, 11458}
+		testPort := []string{":11456", ":11457", ":11458"}
 
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", testPort[0]))
+		listener, err := net.Listen("tcp", testPort[0])
 		if err != nil {
-			t.Fatalf("error while listening to test port %d Please change test port", testPort[0])
+			t.Fatalf("error while listening to test port %v Please change test port", testPort[0])
 		}
 		defer listener.Close()
 
@@ -331,7 +331,7 @@ func TestValidateHostEnv(t *testing.T) {
 		agent.ValidateLocaleSettings = func(locale *idl.Locale) error {
 			return nil
 		}
-		agent.ValidatePortList = func(portList []int32) error {
+		agent.ValidatePortList = func(portList []string) error {
 			return fmt.Errorf(testStr)
 		}
 
@@ -359,7 +359,7 @@ func TestValidateHostEnv(t *testing.T) {
 		agent.ValidateLocaleSettings = func(locale *idl.Locale) error {
 			return nil
 		}
-		agent.ValidatePortList = func(portList []int32) error {
+		agent.ValidatePortList = func(portList []string) error {
 			return nil
 		}
 
@@ -387,7 +387,7 @@ func TestValidateHostEnv(t *testing.T) {
 		agent.ValidateLocaleSettings = func(locale *idl.Locale) error {
 			return nil
 		}
-		agent.ValidatePortList = func(portList []int32) error {
+		agent.ValidatePortList = func(portList []string) error {
 			return nil
 		}
 

@@ -1,6 +1,7 @@
 package init_cluster
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 	"testing"
@@ -11,30 +12,38 @@ import (
 )
 
 var (
-	currentHost     string
-	defaultConfig   cli.InitConfig
 	dataDirectories = []string{"/tmp/demo/0", "/tmp/demo/1", "/tmp/demo/2", "/tmp/demo/3"}
-	hostfile        = flag.String("hostfile", "", "file containing list of hosts")
 	hostList        []string
+	hostfile        = flag.String("hostfile", "", "file containing list of hosts")
 )
 
-func init() {
-	currentHost, _ = os.Hostname()
-	viper.SetConfigFile("sampleConfig.json")
-	viper.SetDefault("common-config", make(map[string]string))
-	viper.SetDefault("coordinator-config", make(map[string]string))
-	viper.SetDefault("segment-config", make(map[string]string))
+func TestMain(m *testing.M) {
+	exitCode := m.Run()
+	os.Exit(exitCode)
+}
 
-	_ = viper.ReadInConfig()
-	_ = viper.Unmarshal(&defaultConfig)
+func GetDefaultConfig() *viper.Viper {
+	currentHost, _ := os.Hostname()
 
-	defaultConfig.Coordinator = cli.Segment{
+	var config cli.InitConfig
+	instance := viper.New()
+
+	instance.SetConfigFile("sampleConfig.json")
+	instance.SetDefault("common-config", make(map[string]string))
+	instance.SetDefault("coordinator-config", make(map[string]string))
+	instance.SetDefault("segment-config", make(map[string]string))
+
+	_ = instance.ReadInConfig()
+	_ = instance.Unmarshal(&config)
+
+	config.Coordinator = cli.Segment{
 		Port:          7000,
 		Hostname:      currentHost,
 		Address:       currentHost,
 		DataDirectory: dataDirectories[0],
 	}
-	defaultConfig.PrimarySegmentsArray = []cli.Segment{
+
+	config.PrimarySegmentsArray = []cli.Segment{
 		{
 			Port:          7001,
 			Hostname:      currentHost,
@@ -54,25 +63,49 @@ func init() {
 			DataDirectory: dataDirectories[3],
 		},
 	}
-	viper.Set("coordinator", defaultConfig.Coordinator)
-	viper.Set("primary-segments-array", defaultConfig.PrimarySegmentsArray)
+
+	instance.Set("coordinator", config.Coordinator)
+	instance.Set("primary-segments-array", config.PrimarySegmentsArray)
+
+	hostList = testutils.GetHostListFromFile(*hostfile)
+
+	if len(hostList) > 1 {
+		for i := range config.PrimarySegmentsArray {
+			config.PrimarySegmentsArray[i].Hostname = hostList[i+1]
+			config.PrimarySegmentsArray[i].Address = hostList[i+1]
+		}
+		instance.Set("primary-segments-array", config.PrimarySegmentsArray)
+	}
+
+	return instance
 }
 
-func TestMain(m *testing.M) {
-	flag.Parse()
-	// if hostfile is not provided as input argument, create it with default host
-	if *hostfile == "" {
-		*hostfile = testutils.DefaultHostfile
-		_ = os.WriteFile(*hostfile, []byte(currentHost), 0644)
+func UnsetConfigKey(key string, filename string) error {
+	config := GetDefaultConfig()
 
-	} else {
-		hostList = testutils.GetHostListFromFile(*hostfile)
-		for i := range defaultConfig.PrimarySegmentsArray {
-			defaultConfig.PrimarySegmentsArray[i].Hostname = hostList[i+1]
-			defaultConfig.PrimarySegmentsArray[i].Address = hostList[i+1]
-		}
-		viper.Set("primary-segments-array", defaultConfig.PrimarySegmentsArray)
+	configMap := config.AllSettings()
+	delete(configMap, key)
+	encodedConfig, err := json.MarshalIndent(configMap, "", " ")
+	if err != nil {
+		return err
 	}
-	exitCode := m.Run()
-	os.Exit(exitCode)
+
+	err = os.WriteFile(filename, encodedConfig, 0777)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func SetConfigKey(filename string, key string, value interface{}) error {
+	config := GetDefaultConfig()
+
+	config.Set(key, value)
+	err := config.WriteConfigAs(filename)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

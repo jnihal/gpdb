@@ -1,7 +1,6 @@
 package testutils
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/greenplum-db/gpdb/gp/constants"
@@ -338,15 +338,12 @@ func structToString(value reflect.Value, indentLevel int) string {
 }
 
 func GetHostListFromFile(hostfile string) []string {
-	file, _ := os.Open(hostfile)
-	defer file.Close()
+	content, _ := os.ReadFile(hostfile)
 
-	var lines []string
-	scanner := bufio.NewScanner(file)
+	return strings.Fields(string(content))
+}
 
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-
-	return lines
+func GetTempFile(t *testing.T, name string) string {
+	dir := t.TempDir()
+	return filepath.Join(dir, name)
 }

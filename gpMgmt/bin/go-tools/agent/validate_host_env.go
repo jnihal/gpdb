@@ -36,7 +36,7 @@ func (s *Server) ValidateHostEnv(ctx context.Context, request *idl.ValidateHostE
 	gplog.Debug("Starting ValidateHostEnvFn for request:%v", request)
 	dirList := request.DirectoryList
 	locale := request.Locale
-	portList := request.PortList
+	socketAddressList := request.SocketAddressList
 	forced := request.Forced
 
 	// Check if user is non-root
@@ -91,7 +91,7 @@ func (s *Server) ValidateHostEnv(ctx context.Context, request *idl.ValidateHostE
 	}
 
 	// Check if port in use
-	err = ValidatePortList(portList)
+	err = ValidatePortList(socketAddressList)
 	if err != nil {
 		return &idl.ValidateHostEnvReply{}, err
 	}
@@ -176,20 +176,20 @@ func CheckHostAddressInHostsFile(hostAddressList []string) []*idl.LogMessage {
 	return warnings
 }
 
-func ValidatePortListFn(portList []int32) error {
+func ValidatePortListFn(socketAddressList []string) error {
 	gplog.Debug("Started with ValidatePortList")
-	var usedPortList []int
-	for _, port := range portList {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	var usedSocketAddressList []string
+	for _, socketAddress := range socketAddressList {
+		listener, err := net.Listen("tcp", socketAddress)
 		if err != nil {
-			usedPortList = append(usedPortList, int(port))
+			usedSocketAddressList = append(usedSocketAddressList, socketAddress)
 		} else {
 			_ = listener.Close()
 		}
 	}
-	if len(usedPortList) > 0 {
-		gplog.Error("ports already in use:%v, check if cluster already running", usedPortList)
-		return fmt.Errorf("ports already in use:%v, check if cluster already running", usedPortList)
+	if len(usedSocketAddressList) > 0 {
+		gplog.Error("ports already in use: %v, check if cluster already running", usedSocketAddressList)
+		return fmt.Errorf("ports already in use: %v, check if cluster already running", usedSocketAddressList)
 	}
 	return nil
 }

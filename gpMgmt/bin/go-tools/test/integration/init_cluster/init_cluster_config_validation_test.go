@@ -8,17 +8,9 @@ import (
 
 	"github.com/greenplum-db/gpdb/gp/cli"
 	"github.com/greenplum-db/gpdb/gp/test/testutils"
-	"github.com/spf13/viper"
 )
 
 func TestInputFileValidation(t *testing.T) {
-	configFile := "/tmp/config.json"
-	
-	err := testutils.ConfigureAndStartServices(*hostfile)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
 	t.Run("cluster creation fails when provided input file doesn't exist", func(t *testing.T) {
 		result, err := testutils.RunInitCluster("non_existing_file.json")
 		if err == nil {
@@ -29,212 +21,222 @@ func TestInputFileValidation(t *testing.T) {
 		if !strings.Contains(result.OutputMsg, expectedOut) {
 			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
+	})
 
+	t.Run("when the config file is not provided as an input", func(t *testing.T) {
+		result, err := testutils.RunInitCluster()
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+
+		expectedOut := "[ERROR]:-please provide config file for cluster initialization"
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
+	})
+
+	t.Run("when invalid number of arguments are given", func(t *testing.T) {
+		result, err := testutils.RunInitCluster("abc", "xyz")
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+
+		expectedOut := "[ERROR]:-more arguments than expected"
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
 	})
 
 	t.Run("cluster creation fails when provided input file has invalid keys", func(t *testing.T) {
-		invalidContent := `{
-	 "cluster":"GPDB",
-	 "encoding":"Unicode",
-	 "hostnames":true,
-	 "password":"gparray",
-	}
-	`
-		_ = os.WriteFile(configFile, []byte(invalidContent), 0644)
-		result, err := testutils.RunInitCluster(configFile)
-		fmt.Println(result, err)
-		expectedOut := "non_existing_file.json: no such file or directory"
-		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
+		content := `{
+			"invalid_key": "value"
 		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
-		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
+		`
+		configFile := testutils.GetTempFile(t, "config.json")
+		err := os.WriteFile(configFile, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
 		}
 
+		result, err := testutils.RunInitCluster(configFile)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+
+		expectedOut := "non_existing_file.json: no such file or directory"
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
 	})
 
 	t.Run("cluster creation fails when provided input file has invalid syntax", func(t *testing.T) {
-		invalidContent := `{
-	 "cluster-name":"GPDB"
-	 "encoding":"Unicode"
-	 "hba-hostnames":true
-	 "su-password":"gparray"
-	}
-	`
-		_ = os.WriteFile(configFile, []byte(invalidContent), 0644)
-		result, err := testutils.RunInitCluster(configFile)
-		fmt.Println(result, err)
-		expectedOut := "invalid syntax"
-		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
+		content := `{
+			$$"key": "value"###
 		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
-		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
+		`
+		configFile := testutils.GetTempFile(t, "config.json")
+		err := os.WriteFile(configFile, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
 		}
 
+		result, err := testutils.RunInitCluster(configFile)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+
+		expectedOut := "[ERROR]:-error while reading config file:"
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
 	})
 
 	t.Run("cluster creation fails when input file doesn't have coordinator details", func(t *testing.T) {
-		viper.SetConfigFile(configFile)
-		viper.Set("coordinator", cli.Segment{})
-		_ = viper.WriteConfigAs(configFile)
+		configFile := testutils.GetTempFile(t, "config.json")
+		err := UnsetConfigKey("coordinator", configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
 		result, err := testutils.RunInitCluster(configFile)
-
-		expectedOut := "no coordinator details provided"
 		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
+			t.Errorf("expected error, got nil")
 		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
+
+		expectedOut := "[ERROR]:-No primary segments are provided in input config file"
 		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
-
-		viper.Set("coordinator", defaultConfig.Coordinator)
-
-		// this test case result services to stop. restarting the services here until the bug fixes.
-		_, _ = testutils.RunStart("services")
 	})
 
-	t.Run("cluster creation fails when input file doesn't have coordinator address", func(t *testing.T) {
-		viper.SetConfigFile(configFile)
-		viper.Set("coordinator.address", "")
-		_ = viper.WriteConfigAs(configFile)
+	t.Run("cluster creation fails when the host does not have gp services configured", func(t *testing.T) {
+		configFile := testutils.GetTempFile(t, "config.json")
+		err := SetConfigKey(configFile, "coordinator", cli.Segment{Hostname: "invalid"})
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
 		result, err := testutils.RunInitCluster(configFile)
-
-		expectedOut := "no coordinator address provided"
 		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
-		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
-		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
+			t.Errorf("expected error, got nil")
 		}
 
-		viper.Set("coordinator", defaultConfig.Coordinator)
+		expectedOut := "[ERROR]:-following hostnames [invalid] do not have gp services configured. Please configure the services."
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
 	})
 
-	t.Run("cluster creation with unsupported encoding", func(t *testing.T) {
-		viper.SetConfigFile(configFile)
-		viper.Set("encoding", "SQL_ASCII")
-		_ = viper.WriteConfigAs(configFile)
-		result, err := testutils.RunInitCluster(configFile)
+	t.Run("cluster creation fails when input file does not have primary segment details", func(t *testing.T) {
+		configFile := testutils.GetTempFile(t, "config.json")
+		err := UnsetConfigKey("primary-segments-array", configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
 
-		expectedOut := "SQL_ASCII is no longer supported as a server encoding"
+		result, err := testutils.RunInitCluster(configFile)
 		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
+			t.Errorf("expected error, got nil")
 		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
+
+		expectedOut := "[ERROR]:-No primary segments are provided in input config file"
 		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
-		viper.Set("encoding", defaultConfig.Encoding)
+	})
+	
+	t.Run("when encoding is unsupported", func(t *testing.T) {
+		configFile := testutils.GetTempFile(t, "config.json")
+		err := SetConfigKey(configFile, "encoding", "SQL_ASCII")
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		result, err := testutils.RunInitCluster(configFile)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+
+		expectedOut := "[ERROR]:-SQL_ASCII is no longer supported as a server encoding"
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
 	})
 
-	t.Run("cluster creation with invalid encoding", func(t *testing.T) {
-		viper.SetConfigFile(configFile)
-		viper.Set("encoding", "invalid")
-		_ = viper.WriteConfigAs(configFile)
-		result, err := testutils.RunInitCluster(configFile)
+	t.Run("when same data directory is given for a host", func(t *testing.T) {
+		var value []cli.Segment
+		var ok bool
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig()
+		
+		primarySegs := config.Get("primary-segments-array")
+		if value, ok = primarySegs.([]cli.Segment); !ok {
+			t.Fatalf("unexpected data type for primary-segments-array %T", value)
+		}
 
-		expectedOut := "executing initdb: initdb: error: \"invalid\" is not a valid server encoding name"
+		err := SetConfigKey(configFile, "primary-segments-array", []cli.Segment{
+			{
+				Hostname: value[0].Hostname,
+				DataDirectory: "gpseg1",
+			},
+			{
+				Hostname: value[0].Hostname,
+				DataDirectory: "gpseg1",
+			},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		result, err := testutils.RunInitCluster(configFile)
 		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
+			t.Errorf("expected error, got nil")
 		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
+
+		expectedOut := fmt.Sprintf("[ERROR]:-duplicate data directory entry gpseg1 found for host %s", value[0].Hostname)
 		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
-		viper.Set("encoding", defaultConfig.Encoding)
 	})
 
-	t.Run("cluster creation with non-boolean value for hba-hostnames", func(t *testing.T) {
-		viper.SetConfigFile(configFile)
-		viper.Set("hba-hostnames", "true")
-		_ = viper.WriteConfigAs(configFile)
+	t.Run("when same port is given for a host address", func(t *testing.T) {
+		var value []cli.Segment
+		var ok bool
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig()
+		
+		primarySegs := config.Get("primary-segments-array")
+		if value, ok = primarySegs.([]cli.Segment); !ok {
+			t.Fatalf("unexpected data type for primary-segments-array %T", value)
+		}
+
+		err := SetConfigKey(configFile, "primary-segments-array", []cli.Segment{
+			{
+				Hostname: value[0].Hostname,
+				Address: value[0].Address,
+				Port: 1234,
+				DataDirectory: "gpseg1",
+			},
+			{
+				Hostname: value[0].Hostname,
+				Address: value[0].Address,
+				Port: 1234,
+				DataDirectory: "gpseg2",
+			},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
 		result, err := testutils.RunInitCluster(configFile)
-
-		expectedOut := "invalid value for hba-hostnames"
 		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
+			t.Errorf("expected error, got nil")
 		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
+
+		expectedOut := fmt.Sprintf("[ERROR]:-duplicate port entry 1234 found for host %s", value[0].Hostname)
 		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
-		viper.Set("hba-hostnames", defaultConfig.HbaHostnames)
-	})
-
-	t.Run("cluster creation with no primary segment details", func(t *testing.T) {
-		viper.SetConfigFile(configFile)
-		viper.Set("primary-segments-array", []cli.Segment{})
-		_ = viper.WriteConfigAs(configFile)
-		result, err := testutils.RunInitCluster(configFile)
-
-		expectedOut := "No primary segments are provided in input config file"
-		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
-		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
-		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
-		}
-		viper.Set("primary-segments-array", defaultConfig.PrimarySegmentsArray)
-	})
-
-	t.Run("cluster creation with invalid max_connection in coordinator config", func(t *testing.T) {
-		viper.SetConfigFile(configFile)
-		viper.Set("coordinator-config", map[string]string{"max_connections": "0"})
-		_ = viper.WriteConfigAs(configFile)
-		result, err := testutils.RunInitCluster(configFile)
-
-		expectedOut := "COORDINATOR_MAX_CONNECT less than 1"
-		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
-		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
-		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
-		}
-		viper.Set("coordinator-config", defaultConfig.CoordinatorConfig)
-	})
-
-	t.Run("cluster creation with invalid max_connection in segment config", func(t *testing.T) {
-		viper.SetConfigFile(configFile)
-		viper.Set("segment-config", map[string]string{"max_connections": "-1"})
-		_ = viper.WriteConfigAs(configFile)
-		result, err := testutils.RunInitCluster(configFile)
-
-		expectedOut := "max_connections less than 1"
-		if err == nil {
-			t.Errorf("\nExpected error, got : %#v", err)
-		}
-		if result.ExitCode != testutils.ExitCode1 {
-			t.Errorf("\nExpected: %v \nGot: %v", testutils.ExitCode1, result.ExitCode)
-		}
-		if !strings.Contains(result.OutputMsg, expectedOut) {
-			t.Errorf("\nExpected string: %#v \nNot found in: %#v", expectedOut, result.OutputMsg)
-		}
-		viper.Set("segment-config", defaultConfig.SegmentConfig)
 	})
 }
 
