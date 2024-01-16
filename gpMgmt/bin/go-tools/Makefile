@@ -10,10 +10,10 @@ MAC_ENV := env GOOS=darwin GOARCH=amd64
 
 .PHONY: unit test
 TEST_PACKAGES := ./...
-unit: TEST_PACKAGES := $(shell go list ./...)
+unit: TEST_PACKAGES := $(shell go list ./... | grep -v ./test/integration)
 unit:
-	go test -v -count=1 $(TEST_PACKAGES) --cover -coverprofile=/tmp/coverage.out;
-	@cat /tmp/coverage.out | \
+	go test -v -count=1 $(TEST_PACKAGES) --cover -coverprofile=coverage.out;
+	@cat coverage.out | \
 	awk 'BEGIN {cov=0; stat=0;} \
 	$$3!="" { cov+=($$3==1?$$2:0); stat+=$$2; } \
     END {printf("\n\ntotal coverage: %.2f%% of statements\n", (cov/stat)*100);}'
@@ -29,14 +29,14 @@ test-coverage:
 		echo "$$dir: $$COVERAGE_PERCENTAGE"; \
 	done
 	@echo ""
-	@go test --count=1 -coverprofile=/tmp/coverage.out ./... > /dev/null 2>&1; \
-	cat /tmp/coverage.out | \
+	@go test --count=1 -coverprofile=coverage.out ./... > /dev/null 2>&1; \
+	cat coverage.out | \
 	awk 'BEGIN {cov=0; stat=0;} \
 	$$3!="" { cov+=($$3==1?$$2:0); stat+=$$2; } \
     END {printf("Total: %.2f%%\n", (cov/stat)*100);}'
 	@echo "----------------------"
 	@echo "Show HTML report with:"
-	@echo "$ go tool cover -html /tmp/coverage.out"
+	@echo "$ go tool cover -html coverage.out"
 
 .PHONY: depend-dev
 depend-dev: export GOBIN := $(CURDIR)/dev-bin
@@ -100,3 +100,9 @@ clean:
 
 uninstall:
 	rm -rf $(GPHOME)/bin/gp
+
+.PHONY: integration-test
+TEST_PACKAGES := ./test/integration/...
+integration-test: TEST_PACKAGES := $(shell go list ./test/integration/...)
+integration-test:
+	go test -v -count=1 $(TEST_PACKAGES) -timeout 0 -p 1 -args -hostfile=$(FILE)
