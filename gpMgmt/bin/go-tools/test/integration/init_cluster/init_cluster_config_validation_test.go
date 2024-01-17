@@ -3,6 +3,7 @@ package init_cluster
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -13,8 +14,8 @@ import (
 func TestInputFileValidation(t *testing.T) {
 	t.Run("cluster creation fails when provided input file doesn't exist", func(t *testing.T) {
 		result, err := testutils.RunInitCluster("non_existing_file.json")
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := "[ERROR]:-stat non_existing_file.json: no such file or directory"
@@ -25,8 +26,8 @@ func TestInputFileValidation(t *testing.T) {
 
 	t.Run("when the config file is not provided as an input", func(t *testing.T) {
 		result, err := testutils.RunInitCluster()
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := "[ERROR]:-please provide config file for cluster initialization"
@@ -37,8 +38,8 @@ func TestInputFileValidation(t *testing.T) {
 
 	t.Run("when invalid number of arguments are given", func(t *testing.T) {
 		result, err := testutils.RunInitCluster("abc", "xyz")
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := "[ERROR]:-more arguments than expected"
@@ -59,8 +60,8 @@ func TestInputFileValidation(t *testing.T) {
 		}
 
 		result, err := testutils.RunInitCluster(configFile)
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := "non_existing_file.json: no such file or directory"
@@ -81,8 +82,8 @@ func TestInputFileValidation(t *testing.T) {
 		}
 
 		result, err := testutils.RunInitCluster(configFile)
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := "[ERROR]:-error while reading config file:"
@@ -99,8 +100,8 @@ func TestInputFileValidation(t *testing.T) {
 		}
 
 		result, err := testutils.RunInitCluster(configFile)
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := "[ERROR]:-No primary segments are provided in input config file"
@@ -117,8 +118,8 @@ func TestInputFileValidation(t *testing.T) {
 		}
 
 		result, err := testutils.RunInitCluster(configFile)
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := "[ERROR]:-following hostnames [invalid] do not have gp services configured. Please configure the services."
@@ -135,8 +136,8 @@ func TestInputFileValidation(t *testing.T) {
 		}
 
 		result, err := testutils.RunInitCluster(configFile)
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := "[ERROR]:-No primary segments are provided in input config file"
@@ -153,8 +154,8 @@ func TestInputFileValidation(t *testing.T) {
 		}
 
 		result, err := testutils.RunInitCluster(configFile)
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := "[ERROR]:-SQL_ASCII is no longer supported as a server encoding"
@@ -189,8 +190,8 @@ func TestInputFileValidation(t *testing.T) {
 		}
 
 		result, err := testutils.RunInitCluster(configFile)
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := fmt.Sprintf("[ERROR]:-duplicate data directory entry gpseg1 found for host %s", value[0].Hostname)
@@ -229,8 +230,8 @@ func TestInputFileValidation(t *testing.T) {
 		}
 
 		result, err := testutils.RunInitCluster(configFile)
-		if err == nil {
-			t.Errorf("expected error, got nil")
+		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
 		}
 
 		expectedOut := fmt.Sprintf("[ERROR]:-duplicate port entry 1234 found for host %s", value[0].Hostname)

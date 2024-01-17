@@ -3,6 +3,7 @@ package init_cluster
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"testing"
 
@@ -15,9 +16,22 @@ var (
 	dataDirectories = []string{"/tmp/demo/0", "/tmp/demo/1", "/tmp/demo/2", "/tmp/demo/3"}
 	hostList        []string
 	hostfile        = flag.String("hostfile", "", "file containing list of hosts")
+	// foo string
 )
 
+func init() {
+	fmt.Print(*hostfile)
+	// foo = os.Getenv("HOSTFILE")
+}
+
 func TestMain(m *testing.M) {
+	fmt.Print(*hostfile)
+	err := testutils.ConfigureAndStartServices(*hostfile)
+	if err != nil {
+		fmt.Print(err)
+		os.Exit(1)
+	}
+
 	exitCode := m.Run()
 	os.Exit(exitCode)
 }

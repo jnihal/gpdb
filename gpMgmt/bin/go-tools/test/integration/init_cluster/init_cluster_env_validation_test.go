@@ -50,6 +50,7 @@ func TestEnvValidation(t *testing.T) {
 
 		expectedOut := fmt.Sprintf("[ERROR]:-host: %s, directory not empty:[%s]", value.Hostname, value.DataDirectory)
 		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Log(err)
 			t.Fatalf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
 	})
