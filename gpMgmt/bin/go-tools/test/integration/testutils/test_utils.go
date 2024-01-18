@@ -1,7 +1,6 @@
 package testutils
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/greenplum-db/gpdb/gp/constants"
@@ -30,6 +30,34 @@ type CmdResult struct {
 }
 
 const ExitCode1 = 1
+
+func ConfigureAndStartServices(hostfile string) error {
+	result, err := RunConfigure(true, "--hostfile", hostfile)
+	if err != nil {
+		return fmt.Errorf("failed to configure the services: %v, %v", result.OutputMsg, err)
+	}
+	
+	result, err = RunStart("services")
+	if err != nil {
+		return fmt.Errorf("failed to start the services: %v, %v", result.OutputMsg, err)
+	}
+	
+	startTime := time.Now()
+	timeout := 10 * time.Second
+
+	for {
+		result, err := RunStatus("services")
+		if err == nil {
+			return nil
+		}
+
+		if time.Since(startTime) >= timeout {
+			return fmt.Errorf("failed to configure services after %v seconds: %v, %v", timeout, result.OutputMsg, err)
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+}
 
 func RunConfigure(useCert bool, params ...string) (CmdResult, error) {
 	var args []string
@@ -71,6 +99,23 @@ func RunStatus(params ...string) (CmdResult, error) {
 	genCmd := Command{
 		cmdStr: constants.DefaultServiceName,
 		args:   params,
+	}
+	return runCmd(genCmd)
+}
+
+func RunInitCluster(params ...string) (CmdResult, error) {
+	params = append([]string{"init", "cluster"}, params...)
+	genCmd := Command{
+		cmdStr: constants.DefaultServiceName,
+		args:   params,
+	}
+	return runCmd(genCmd)
+}
+
+func DeleteCluster() (CmdResult, error) {
+	genCmd := Command{
+		cmdStr: "bash",
+		args:   []string{"-c", "echo -e 'y\ny' | gpdeletesystem"},
 	}
 	return runCmd(genCmd)
 }
@@ -297,15 +342,12 @@ func structToString(value reflect.Value, indentLevel int) string {
 }
 
 func GetHostListFromFile(hostfile string) []string {
-	file, _ := os.Open(hostfile)
-	defer file.Close()
+	content, _ := os.ReadFile(hostfile)
 
-	var lines []string
-	scanner := bufio.NewScanner(file)
+	return strings.Fields(string(content))
+}
 
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-
-	return lines
+func GetTempFile(t *testing.T, name string) string {
+	dir := t.TempDir()
+	return filepath.Join(dir, name)
 }
