@@ -310,6 +310,10 @@ func GetAllAvailableLocalesFn() (string, error) {
 // https://sourceware.org/git/?p=glibc.git;a=blob;f=intl/l10nflist.c;h=078a450dfec21faf2d26dc5d0cb02158c1f23229;hb=1305edd42c44fee6f8660734d2dfa4911ec755d6#l294
 // Input parameter - string with locale define as [language[_territory][.codeset][@modifier]]
 func NormalizeCodesetInLocale(locale string) string {
+	if locale == "" {
+		return locale
+	}
+	
 	localeSplit := strings.Split(locale, ".")
 	languageAndTerritory := ""
 	codesetAndModifier := []string{}
@@ -362,6 +366,7 @@ func atIfNotEmpty(s string) string {
 
 func IsLocaleAvailable(locale_type string, allAvailableLocales string) bool {
 	locales := strings.Split(allAvailableLocales, "\n")
+	locales = append(locales, "")
 	normalizedLocale := NormalizeCodesetInLocale(locale_type)
 
 	for _, v := range locales {
