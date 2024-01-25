@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -51,28 +52,31 @@ func TestInputFileValidation(t *testing.T) {
 		}
 	})
 
-	// TODO: Need to fix the bug in the code
-	// t.Run("cluster creation fails when provided input file has invalid keys", func(t *testing.T) {
-	// 	content := `{
-	// 		"invalid_key": "value"
-	// 	}
-	// 	`
-	// 	configFile := testutils.GetTempFile(t, "config.json")
-	// 	err := os.WriteFile(configFile, []byte(content), 0644)
-	// 	if err != nil {
-	// 		t.Fatalf("unexpected error: %#v", err)
-	// 	}
+	t.Run("cluster creation fails when provided input file has invalid keys", func(t *testing.T) {
+		content := `{
+			"invalid_key": "value"
+		}
+		`
+		configFile := testutils.GetTempFile(t, "config.json")
+		err := os.WriteFile(configFile, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
 
-	// 	result, err := testutils.RunInitCluster(configFile)
-	// 	if e, ok := err.(*exec.ExitError); !ok || e.ExitCode() != 1 {
-	// 		t.Fatalf("got %v, want exit status 1", err)
-	// 	}
+		result, err := testutils.RunInitCluster(configFile)
+		if e, ok := err.(*exec.ExitError); !ok || e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
+		}
 
-	// 	expectedOut := "non_existing_file.json: no such file or directory"
-	// 	if !strings.Contains(result.OutputMsg, expectedOut) {
-	// 		t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
-	// 	}
-	// })
+		expectedOut := `(?s)\[ERROR\]:-while unmarshaling config file: (.*?) has invalid keys: invalid_key`
+		match, err := regexp.MatchString(expectedOut, result.OutputMsg)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !match {
+			t.Fatalf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
+	})
 
 	t.Run("cluster creation fails when provided input file has invalid syntax", func(t *testing.T) {
 		content := `{

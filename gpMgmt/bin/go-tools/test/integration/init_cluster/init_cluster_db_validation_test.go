@@ -104,7 +104,7 @@ func TestLocaleValidation(t *testing.T) {
 			t.Fatalf("got %v, want exit status 1", err)
 		}
 
-		expectedOut := "\\[ERROR\\]:-host: (\\S+), locale value 'invalid.locale' is not a valid locale"
+		expectedOut := `\[ERROR\]:-host: (\S+), locale value 'invalid.locale' is not a valid locale`
 		match, err := regexp.MatchString(expectedOut, result.OutputMsg)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
