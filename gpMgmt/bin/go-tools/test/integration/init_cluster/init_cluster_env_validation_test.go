@@ -106,27 +106,21 @@ func TestEnvValidation(t *testing.T) {
 			t.Fatalf("unexpected data type for coordinator %T", value)
 		}
 
-		initdbFilePath := "/usr/local/gpdb/bin/initdb"
+		gpHome := os.Getenv("GPHOME")
+		if gpHome == "" {
+			t.Fatal("GPHOME environment variable not set")
+		}
 
-		// Open the existing initdb file
-		file, err := os.OpenFile(initdbFilePath, os.O_RDONLY, 0)
-		if err != nil {
-			t.Fatalf("unexpected error: %#v", err)
+		initdbFilePath := filepath.Join(gpHome, "bin", "initdb")
+
+		if err := os.Chmod(initdbFilePath, 0444); err != nil {
+			t.Fatalf("unexpected error during changing initdb file permission: %#v", err)
 		}
 		defer func() {
-			// Teardown function to change file permissions back to 755
-			err := file.Chmod(0755)
-			if err != nil {
+			if err := os.Chmod(initdbFilePath, 0755); err != nil {
 				t.Fatalf("unexpected error during changing initdb file permission: %#v", err)
 			}
-			file.Close()
 		}()
-
-		// Set insufficient permissions (for example, read-only)
-		err = file.Chmod(0444)
-		if err != nil {
-			t.Fatalf("unexpected error: %#v", err)
-		}
 
 		result, err := testutils.RunInitCluster(configFile)
 		if e, ok := err.(*exec.ExitError); !ok || e.ExitCode() != 1 {
@@ -166,25 +160,19 @@ func TestEnvValidation(t *testing.T) {
 			t.Fatalf("unexpected error: %#v", err)
 		}
 
-		commonParentDir := filepath.Dir(value.DataDirectory)
-		commonParentPattern := filepath.Join(commonParentDir, "*")
-
-		defer func() {
-			dirs, err := filepath.Glob(commonParentPattern)
-
-			if err != nil {
-				t.Fatalf("Error listing directories: %#v", err)
-				return
-			}
-			for _, dir := range dirs {
-				os.RemoveAll(dir)
-			}
-		}()
-
 		result, err := testutils.RunInitCluster("--force", configFile)
-		expectedOut := fmt.Sprintf("[INFO]:-Cluster initialized successfully")
+
+		if err != nil {
+			t.Fatalf("Error while intializing cluster: %#v", err)
+		}
+		expectedOut := "[INFO]:-Cluster initialized successfully"
 		if !strings.Contains(result.OutputMsg, expectedOut) {
 			t.Fatalf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 }
