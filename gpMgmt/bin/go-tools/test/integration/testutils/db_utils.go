@@ -5,7 +5,53 @@ import (
 	"testing"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/jmoiron/sqlx"
 )
+
+func ExecQuery(t *testing.T, dbname, query string) *sqlx.Rows {
+	t.Helper()
+
+	if dbname == "" {
+		dbname = "postgres"
+	}
+	conn := dbconn.NewDBConnFromEnvironment(dbname)
+	err := conn.Connect(1)
+	if err != nil {
+		t.Fatalf("unexpected error connecting to database: %v", err)
+	}
+	defer conn.Close()
+
+	result, err := conn.Query(query)
+	if err != nil {
+		t.Fatalf("unexpected error executing query %q: %v", query, err)
+	}
+
+	return result
+}
+
+func ExecQueryInUtilityMode(t *testing.T, host string, port int, dbname, query string) *sqlx.Rows {
+	t.Helper()
+
+	if dbname == "" {
+		dbname = "postgres"
+	}
+	conn := dbconn.NewDBConnFromEnvironment(dbname)
+	conn.Host = host
+	conn.Port = port
+
+	err := conn.Connect(1, true)
+	if err != nil {
+		t.Fatalf("unexpected error connecting to database: %v", err)
+	}
+	defer conn.Close()
+
+	result, err := conn.Query(query)
+	if err != nil {
+		t.Fatalf("unexpected error executing query %q: %v", query, err)
+	}
+
+	return result
+}
 
 /*
 AssertPgConfig asserts for the expected postgres configuration value or GUC
