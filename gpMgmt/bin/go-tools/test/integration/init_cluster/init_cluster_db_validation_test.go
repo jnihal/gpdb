@@ -171,6 +171,47 @@ func TestPgConfig(t *testing.T) {
 	})
 }
 
+func TestCollations(t *testing.T) {
+	t.Run("collations are imported successfully", func(t *testing.T) {
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		result, err := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		}
+
+		expectedOut := "[INFO]:-Importing system collations"
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
+
+		// before importing collations
+		testutils.ExecQuery(t, "", "CREATE TABLE collationimport1 AS SELECT * FROM pg_collation WHERE collnamespace = 'pg_catalog'::regnamespace")
+
+		// importing collations
+		rows := testutils.ExecQuery(t, "", "SELECT pg_import_system_collations('pg_catalog')")
+		testutils.AssertRowCount(t, rows, 1)
+
+		// after importing collations
+		testutils.ExecQuery(t, "", "CREATE TABLE collationimport2 AS SELECT * FROM pg_collation WHERE collnamespace = 'pg_catalog'::regnamespace")
+
+		// there should be no difference before and after
+		rows = testutils.ExecQuery(t, "", "SELECT * FROM collationimport1 EXCEPT SELECT * FROM collationimport2")
+		testutils.AssertRowCount(t, rows, 0)
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
 func getSystemLocale(t *testing.T, localeType string) string {
 	t.Helper()
 

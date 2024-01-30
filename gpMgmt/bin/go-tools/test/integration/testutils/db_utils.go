@@ -53,6 +53,19 @@ func ExecQueryInUtilityMode(t *testing.T, host string, port int, dbname, query s
 	return result
 }
 
+func AssertRowCount(t *testing.T, rows *sqlx.Rows, expected int) {
+	t.Helper()
+
+	count := 0
+	for rows.Next() {
+		count += 1
+	}
+
+	if count != expected {
+		t.Fatalf("unexpected number of rows: got %d, want %d", count, expected)
+	}
+}
+
 /*
 AssertPgConfig asserts for the expected postgres configuration value or GUC
 value for a particular segment. Checks for the coordinator segment by default.
