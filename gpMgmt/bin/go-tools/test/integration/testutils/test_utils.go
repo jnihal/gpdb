@@ -36,12 +36,12 @@ func ConfigureAndStartServices(hostfile string) error {
 	if err != nil {
 		return fmt.Errorf("failed to configure the services: %v, %v", result.OutputMsg, err)
 	}
-	
+
 	result, err = RunStart("services")
 	if err != nil {
 		return fmt.Errorf("failed to start the services: %v, %v", result.OutputMsg, err)
 	}
-	
+
 	startTime := time.Now()
 	timeout := 10 * time.Second
 
@@ -111,6 +111,50 @@ func RunInitCluster(params ...string) (CmdResult, error) {
 	}
 	return runCmd(genCmd)
 }
+
+func RunGpStatus(params ...string) (CmdResult, error) {
+	allParams := append([]string{"gpstate"}, params...)
+
+	genCmd := Command{
+		cmdStr: allParams[0],  
+		args:   allParams[1:],
+	}
+
+	return runCmd(genCmd)
+}
+func RunGpCheckCat(params ...string) (CmdResult, error) {
+	allParams := append([]string{"gpcheckcat"}, params...)
+
+	genCmd := Command{
+		cmdStr: allParams[0],
+		args:   allParams[1:],
+	}
+
+	return runCmd(genCmd)
+}
+func RunGpStop(params ...string) (CmdResult, error) {
+	allParams := append([]string{"gpstop", "-a"}, params...)
+
+	genCmd := Command{
+		cmdStr: allParams[0],
+		args:   allParams[1:],
+	}
+
+	return runCmd(genCmd)
+}
+func RunGpStart(params ...string) (CmdResult, error) {
+	allParams := append([]string{"gpstart", "-a"}, params...)
+
+	genCmd := Command{
+		cmdStr: allParams[0],
+		args:   allParams[1:],
+	}
+
+	return runCmd(genCmd)
+}
+
+
+
 
 func DeleteCluster() (CmdResult, error) {
 	genCmd := Command{
@@ -209,7 +253,7 @@ func UnloadSvcFile(cmd string, file string) {
 		genCmd.args = []string{"unload", file}
 
 	} else {
-		genCmd.args = []string{"--user" ,"stop", file}
+		genCmd.args = []string{"--user", "stop", file}
 	}
 	_, _ = runCmd(genCmd)
 }
