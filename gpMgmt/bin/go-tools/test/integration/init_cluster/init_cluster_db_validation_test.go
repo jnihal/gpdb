@@ -3,16 +3,17 @@ package init_cluster
 import (
 	"math/rand"
 	"os/exec"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
 	"testing"
-	"reflect"
-    "github.com/greenplum-db/gpdb/gp/cli"
+
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gpdb/gp/cli"
 	"github.com/greenplum-db/gpdb/gp/constants"
 	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
-	"github.com/greenplum-db/gp-common-go-libs/cluster"
-    "github.com/greenplum-db/gp-common-go-libs/dbconn"
 )
 
 func TestLocaleValidation(t *testing.T) {
@@ -171,50 +172,49 @@ func TestPgConfig(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
-	
+
 	t.Run("check if the gp_segment_configuration table has the correct value", func(t *testing.T) {
 		var value cli.Segment
 		var valueSeg []cli.Segment
 		var ok bool
-	
+
 		configFile := testutils.GetTempFile(t, "config.json")
 		config := GetDefaultConfig(t)
-	
+
 		err := config.WriteConfigAs(configFile)
 		if err != nil {
 			t.Fatalf("unexpected error: %#v", err)
 		}
-	
+
 		coordinator := config.Get("coordinator")
 		if value, ok = coordinator.(cli.Segment); !ok {
 			t.Fatalf("unexpected data type for coordinator %T", value)
 		}
-	
+
 		primarySegs := config.Get("primary-segments-array")
 		if valueSeg, ok = primarySegs.([]cli.Segment); !ok {
 			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
 		}
-	
+
 		expectedSegs := []cli.Segment{value}
 		expectedSegs = append(expectedSegs, valueSeg...)
-	
+
 		result, err := testutils.RunInitCluster(configFile)
 		if err != nil {
 			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
 		}
-	
+
 		conn := dbconn.NewDBConnFromEnvironment("postgres")
 		if err := conn.Connect(1); err != nil {
 			t.Fatalf("Error connecting to the database: %v", err)
 		}
 		defer conn.Close()
-	
+
 		segConfigs, err := cluster.GetSegmentConfiguration(conn, false)
-		if err != nil{
+		if err != nil {
 			t.Fatalf("Error getting segment configuration: %v", err)
 		}
-		
-	
+
 		resultSegs := make([]cli.Segment, len(segConfigs))
 		for i, seg := range segConfigs {
 			resultSegs[i] = cli.Segment{
@@ -224,27 +224,27 @@ func TestPgConfig(t *testing.T) {
 				Address:       seg.Hostname,
 			}
 		}
-	
+
 		if !reflect.DeepEqual(resultSegs, expectedSegs) {
 			t.Fatalf("got %+v, want %+v", resultSegs, expectedSegs)
 		}
-	
+
 		_, err = testutils.DeleteCluster()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
-	
+
 	t.Run("initialize cluster with default config and verify default values used correctly", func(t *testing.T) {
 		var expectedOut string
 		configFile := testutils.GetTempFile(t, "config.json")
 		config := GetDefaultConfig(t)
-	
+
 		err := config.WriteConfigAs(configFile)
 		if err != nil {
 			t.Fatalf("unexpected error: %#v", err)
 		}
-	
+
 		result, err := testutils.RunInitCluster(configFile)
 		if err != nil {
 			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
@@ -266,11 +266,10 @@ func TestPgConfig(t *testing.T) {
 			t.Fatalf("Output does not contain the expected string.\nExpected: %q\nGot: %q", expectedOut, expectedOutput)
 		}
 
-	
 		testutils.AssertPgConfig(t, "max_connections", "150", -1)
 		testutils.AssertPgConfig(t, "shared_buffers", "125MB", -1)
 		testutils.AssertPgConfig(t, "client_encoding", "UTF8", -1)
-	
+
 		_, err = testutils.DeleteCluster()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -355,4 +354,109 @@ func getRandomLocale(t *testing.T) string {
 	}
 
 	return locales[rand.Intn(len(locales))]
+}
+
+func TestDbNameValidation(t *testing.T) {
+	t.Run("Database name provided is created properly", func(t *testing.T) {
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		result, err := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		}
+
+		// before creating database
+		targetDBName := "testdb"
+		QueryResult := testutils.ExecQuery(t, "", "SELECT datname from pg_database")
+		for QueryResult.Next() {
+			var dbName string
+			err := QueryResult.Scan(&dbName)
+			if err != nil {
+				t.Fatalf("unexpected error scanning query result: %v", err)
+			}
+			if dbName == targetDBName {
+				t.Fatalf("Database '%s' should not exist before creating it", targetDBName)
+			}
+		}
+
+		//delete clutser and create it again with dbname specified
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		SetConfigKey(t, configFile, "db-name", targetDBName, true)
+		InitClusterResult, error := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", InitClusterResult.OutputMsg, error)
+		}
+
+		// after creating db
+		foundDB := false
+		rows := testutils.ExecQuery(t, "", "SELECT datname from pg_database")
+		for rows.Next() {
+			var dbName string
+			err := rows.Scan(&dbName)
+			if err != nil {
+				t.Fatalf("unexpected error scanning result: %v", err)
+			}
+			if dbName == targetDBName {
+				foundDB = true
+			}
+		}
+		if !foundDB {
+			t.Fatalf("Database %v should exist after creating it", targetDBName)
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestGpToolKitValidation(t *testing.T) {
+	t.Run("Check if the gp_toolkit extension is created", func(t *testing.T) {
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		result, err := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		}
+
+		QueryResult := testutils.ExecQuery(t, "", "select extname from pg_extension ")
+		foundGpToolkit := false
+		for QueryResult.Next() {
+			var extName string
+			err := QueryResult.Scan(&extName)
+			if err != nil {
+				t.Fatalf("unexpected error scanning result: %v", err)
+			}
+			if extName == "gp_toolkit" {
+				foundGpToolkit = true
+			}
+		}
+
+		// Validate that "gp_toolkit" is present
+		if !foundGpToolkit {
+			t.Fatalf("Extension 'gp_toolkit' should exist in pg_extension")
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
 }
