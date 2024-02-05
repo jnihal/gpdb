@@ -8,7 +8,7 @@ import (
 	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
 )
 func TestInitCluster(t *testing.T) {
-t.Run("Check if the cluster is created successfully and run other utilities to verify - gpstop, gpstart, gpstate, gpcheckcat", func(t *testing.T) {
+t.Run("check if the cluster is created successfully and run other utilities to verify - gpstop, gpstart, gpstate, gpcheckcat", func(t *testing.T) {
 	configFile := testutils.GetTempFile(t, "config.json")
 	config := GetDefaultConfig(t)
 

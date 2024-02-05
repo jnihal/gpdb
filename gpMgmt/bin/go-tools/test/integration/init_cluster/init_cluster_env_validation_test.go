@@ -12,8 +12,6 @@ import (
 
 	"github.com/greenplum-db/gpdb/gp/cli"
 	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
-	"github.com/greenplum-db/gp-common-go-libs/cluster"
-    "github.com/greenplum-db/gp-common-go-libs/dbconn"
 	
 )
 
@@ -179,109 +177,4 @@ func TestEnvValidation(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
-
-
-
-	t.Run("Check if the gp_segment_configuration table has the correct value", func(t *testing.T) {
-		var value cli.Segment
-		var ok bool
-		var valueSeg []cli.Segment
-		var okSeg bool
-	
-		configFile := testutils.GetTempFile(t, "config.json")
-		config := GetDefaultConfig(t)
-	
-		err := config.WriteConfigAs(configFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %#v", err)
-		}
-	
-		coordinator := config.Get("coordinator")
-		if value, ok = coordinator.(cli.Segment); !ok {
-			t.Fatalf("unexpected data type for coordinator %T", value)
-		}
-	
-		primarySegs := config.Get("primary-segments-array")
-		if valueSeg, okSeg = primarySegs.([]cli.Segment); !okSeg {
-			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
-		}
-	
-		primarySegs = append([]cli.Segment{value}, valueSeg...)
-	
-		result, err := testutils.RunInitCluster(configFile)
-		fmt.Println(result)
-	
-		if err != nil {
-			t.Fatalf("Error while initializing cluster: %#v", err)
-		}
-	
-		conn := dbconn.NewDBConnFromEnvironment("postgres")
-		conn.Connect(1)
-		segConfigs, err := cluster.GetSegmentConfiguration(conn, false)
-		conn.Close()
-	
-		var mismatchInfo []string
-		for i := 0; i < len(segConfigs); i++ {
-			if segConfigs[i].Port != primarySegs.([]cli.Segment)[i].Port {
-				mismatchInfo = append(mismatchInfo, fmt.Sprintf("Invalid Port at index %d: %d (Expected: %d)", i, segConfigs[i].Port, primarySegs.([]cli.Segment)[i].Port))
-			}
-			if segConfigs[i].Hostname != primarySegs.([]cli.Segment)[i].Hostname {
-				mismatchInfo = append(mismatchInfo, fmt.Sprintf("Invalid Hostname at index %d: %s (Expected: %s)", i, segConfigs[i].Hostname, primarySegs.([]cli.Segment)[i].Hostname))
-			}
-			if segConfigs[i].DataDir != primarySegs.([]cli.Segment)[i].DataDirectory {
-				mismatchInfo = append(mismatchInfo, fmt.Sprintf("Invalid DataDir at index %d: %s (Expected: %s)", i, segConfigs[i].DataDir, primarySegs.([]cli.Segment)[i].DataDirectory))
-			}
-		}
-	
-		if len(mismatchInfo) > 0 {
-			arrayAsString := strings.Join(mismatchInfo, ", ")
-			t.Fatalf(arrayAsString)
-		} else {
-			fmt.Println("All segments matched successfully.")
-		}
-		_, err = testutils.DeleteCluster()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-	t.Run("initialize cluster with default config and verify default values used correctly", func(t *testing.T) {
-		configFile := testutils.GetTempFile(t, "config.json")
-		config := GetDefaultConfig(t)
-	
-		err := config.WriteConfigAs(configFile)
-		if err != nil {
-			t.Fatalf("unexpected error: %#v", err)
-		}
-	
-		result, err := testutils.RunInitCluster(configFile)
-		fmt.Println(result)
-	
-		if err != nil {
-			t.Fatalf("Error while initializing cluster: %#v", err)
-		}
-	
-		expectedOut1 := "[INFO]:-Could not find encoding in cluster config, defaulting to UTF-8"
-		expectedOut2 := "[INFO]:-COORDINATOR max_connections not set, will set to default value 150"
-		expectedOut3 := "[INFO]:-shared_buffers is not set, will set to default value 128000kB"
-	
-		if !strings.Contains(result.OutputMsg, expectedOut1) &&
-			!strings.Contains(result.OutputMsg, expectedOut2) &&
-			!strings.Contains(result.OutputMsg, expectedOut3) {
-			t.Fatalf("Output does not contain the expected strings.\nExpected:\n1. %q\n2. %q\n3. %q\nGot:\n%q",
-				expectedOut1, expectedOut2, expectedOut3, result.OutputMsg)
-		}
-	
-		testutils.AssertPgConfig(t, "max_connections", "150", -1)
-		testutils.AssertPgConfig(t, "shared_buffers", "125MB", -1)
-		testutils.AssertPgConfig(t, "client_encoding", "UTF8", -1)
-	
-		_, err = testutils.DeleteCluster()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-		
-
-
-	
 }		

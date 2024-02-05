@@ -7,10 +7,12 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/greenplum-db/gpdb/gp/cli"
+	"reflect"
+    "github.com/greenplum-db/gpdb/gp/cli"
 	"github.com/greenplum-db/gpdb/gp/constants"
 	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
+    "github.com/greenplum-db/gp-common-go-libs/dbconn"
 )
 
 func TestLocaleValidation(t *testing.T) {
@@ -164,6 +166,111 @@ func TestPgConfig(t *testing.T) {
 		testutils.AssertPgConfig(t, "max_connections", "15", -1)
 		testutils.AssertPgConfig(t, "max_connections", "10", 0)
 
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	
+	t.Run("check if the gp_segment_configuration table has the correct value", func(t *testing.T) {
+		var value cli.Segment
+		var valueSeg []cli.Segment
+		var ok bool
+	
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+	
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+	
+		coordinator := config.Get("coordinator")
+		if value, ok = coordinator.(cli.Segment); !ok {
+			t.Fatalf("unexpected data type for coordinator %T", value)
+		}
+	
+		primarySegs := config.Get("primary-segments-array")
+		if valueSeg, ok = primarySegs.([]cli.Segment); !ok {
+			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
+		}
+	
+		expectedSegs := []cli.Segment{value}
+		expectedSegs = append(expectedSegs, valueSeg...)
+	
+		result, err := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		}
+	
+		conn := dbconn.NewDBConnFromEnvironment("postgres")
+		if err := conn.Connect(1); err != nil {
+			t.Fatalf("Error connecting to the database: %v", err)
+		}
+		defer conn.Close()
+	
+		segConfigs, err := cluster.GetSegmentConfiguration(conn, false)
+		if err != nil{
+			t.Fatalf("Error getting segment configuration: %v", err)
+		}
+		
+	
+		resultSegs := make([]cli.Segment, len(segConfigs))
+		for i, seg := range segConfigs {
+			resultSegs[i] = cli.Segment{
+				Hostname:      seg.Hostname,
+				Port:          seg.Port,
+				DataDirectory: seg.DataDir,
+				Address:       seg.Hostname,
+			}
+		}
+	
+		if !reflect.DeepEqual(resultSegs, expectedSegs) {
+			t.Fatalf("got %+v, want %+v", resultSegs, expectedSegs)
+		}
+	
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	
+	t.Run("initialize cluster with default config and verify default values used correctly", func(t *testing.T) {
+		var expectedOut string
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+	
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+	
+		result, err := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		}
+		expectedOutput := result.OutputMsg
+
+		expectedOut = "[INFO]:-Could not find encoding in cluster config, defaulting to UTF-8"
+		if !strings.Contains(expectedOutput, expectedOut) {
+			t.Fatalf("Output does not contain the expected string.\nExpected: %q\nGot: %q", expectedOut, expectedOutput)
+		}
+
+		expectedOut = "[INFO]:-COORDINATOR max_connections not set, will set to default value 150"
+		if !strings.Contains(expectedOutput, expectedOut) {
+			t.Fatalf("Output does not contain the expected string.\nExpected: %q\nGot: %q", expectedOut, expectedOutput)
+		}
+
+		expectedOut = "[INFO]:-shared_buffers is not set, will set to default value 128000kB"
+		if !strings.Contains(expectedOutput, expectedOut) {
+			t.Fatalf("Output does not contain the expected string.\nExpected: %q\nGot: %q", expectedOut, expectedOutput)
+		}
+
+	
+		testutils.AssertPgConfig(t, "max_connections", "150", -1)
+		testutils.AssertPgConfig(t, "shared_buffers", "125MB", -1)
+		testutils.AssertPgConfig(t, "client_encoding", "UTF8", -1)
+	
 		_, err = testutils.DeleteCluster()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
