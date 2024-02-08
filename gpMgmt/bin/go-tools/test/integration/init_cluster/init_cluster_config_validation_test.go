@@ -233,6 +233,136 @@ func TestInputFileValidation(t *testing.T) {
 			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
 	})
+
+	t.Run("when empty data directory is given for a host", func(t *testing.T) {
+		var ok bool
+		var valueSeg []cli.Segment
+
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		primarySegs := config.Get("primary-segments-array")
+		if valueSeg, ok = primarySegs.([]cli.Segment); !ok {
+			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
+		}
+
+		SetConfigKey(t, configFile, "primary-segments-array", []cli.Segment{
+			{
+				Hostname:      valueSeg[0].Hostname,
+				Address:       valueSeg[0].Address,
+				Port:          valueSeg[0].Port,
+				DataDirectory: valueSeg[0].DataDirectory,
+			},
+			{
+				Hostname:      valueSeg[0].Hostname,
+				Address:       valueSeg[0].Address,
+				Port:          valueSeg[0].Port,
+				DataDirectory: "",
+			},
+		}, true)
+
+		result, err := testutils.RunInitCluster(configFile)
+		if e, ok := err.(*exec.ExitError); !ok || e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
+		}
+		//to do: this error message needs to be corrected
+		expectedOut := fmt.Sprintf("[ERROR]:-data_directory has not been provided for segment with hostname %s and data_directory", valueSeg[0].Hostname)
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
+	})
+
+	t.Run("when host address is not provided", func(t *testing.T) {
+		var ok bool
+		var value cli.Segment
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		coordinator := config.Get("coordinator")
+		if value, ok = coordinator.(cli.Segment); !ok {
+			t.Fatalf("unexpected data type for coordinator %T", coordinator)
+		}
+
+		//set coordinator host address as empty
+		value.Address = ""
+		SetConfigKey(t, configFile, "coordinator", value, true)
+
+		result, err := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		}
+
+		expectedOut := fmt.Sprintf("[WARNING]:-hostAddress has not been provided, populating it with same as hostName %s for the segment with port %d and data_directory %s", value.Hostname, value.Port, value.DataDirectory)
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+	})
+
+	t.Run("when both hostaddress and hostnames are not provided or hostname alone is empty", func(t *testing.T) {
+		var ok bool
+		var valueSeg []cli.Segment
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		primarySegs := config.Get("primary-segments-array")
+		if valueSeg, ok = primarySegs.([]cli.Segment); !ok {
+			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
+		}
+
+		SetConfigKey(t, configFile, "primary-segments-array", []cli.Segment{
+			{
+				Hostname: valueSeg[0].Hostname,
+				Address:  valueSeg[0].Address,
+			},
+			{
+				Hostname: "",
+				Address:  "",
+			},
+		}, true)
+
+		result, err := testutils.RunInitCluster(configFile)
+		if e, ok := err.(*exec.ExitError); !ok || e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
+		}
+
+		//to do: this error message needs to be corrected
+		expectedOut := "[ERROR]:-following hostnames [] do not have gp services configured. Please configure the services"
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
+	})
+
+	t.Run("when port number is not provided", func(t *testing.T) {
+		var ok bool
+		var value cli.Segment
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		coordinator := config.Get("coordinator")
+		if value, ok = coordinator.(cli.Segment); !ok {
+			t.Fatalf("unexpected data type for coordinator %T", coordinator)
+		}
+
+		//set coordinator port number as empty
+		value.Port = 0
+		SetConfigKey(t, configFile, "coordinator", value, true)
+
+		result, err := testutils.RunInitCluster(configFile)
+		if e, ok := err.(*exec.ExitError); !ok || e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
+		}
+
+		expectedOut := fmt.Sprintf("[ERROR]:-invalid port has been provided for segment with hostname %s and data_directory %s", value.Hostname, value.DataDirectory)
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
+		}
+	})
 }
 
 func GetDefaultConfig(t *testing.T) *viper.Viper {

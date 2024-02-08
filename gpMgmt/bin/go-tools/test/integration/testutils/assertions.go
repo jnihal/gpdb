@@ -64,7 +64,7 @@ the program string and greps for the required log message
 func AssertLogMessage(t *testing.T, msg string, program string, host ...string) {
 	t.Helper()
 
-	logdir := constants.DefaultHubLogDir
+	logdir := constants.GetDefaultHubLogDir()
 	cmdStr := fmt.Sprintf("ls -t %s | grep %s | head -1 | xargs -I {} grep -F %q %s/{}", logdir, program, msg, logdir)
 
 	cmd := exec.Command("bash", "-c", cmdStr)
