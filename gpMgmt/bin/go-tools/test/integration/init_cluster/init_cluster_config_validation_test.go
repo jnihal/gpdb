@@ -349,7 +349,7 @@ func TestInputFileValidation(t *testing.T) {
 			t.Fatalf("unexpected data type for coordinator %T", coordinator)
 		}
 
-		//set coordinator port number as empty
+		//set coordinator port number as  empty
 		value.Port = 0
 		SetConfigKey(t, configFile, "coordinator", value, true)
 

@@ -357,7 +357,7 @@ func getRandomLocale(t *testing.T) string {
 }
 
 func TestDbNameValidation(t *testing.T) {
-	t.Run("Database name provided is created properly", func(t *testing.T) {
+	t.Run("database name provided is created properly", func(t *testing.T) {
 		configFile := testutils.GetTempFile(t, "config.json")
 		config := GetDefaultConfig(t)
 
@@ -422,7 +422,7 @@ func TestDbNameValidation(t *testing.T) {
 }
 
 func TestGpToolKitValidation(t *testing.T) {
-	t.Run("Check if the gp_toolkit extension is created", func(t *testing.T) {
+	t.Run("check if the gp_toolkit extension is created", func(t *testing.T) {
 		configFile := testutils.GetTempFile(t, "config.json")
 		config := GetDefaultConfig(t)
 
