@@ -266,7 +266,7 @@ func TestInputFileValidation(t *testing.T) {
 			t.Fatalf("got %v, want exit status 1", err)
 		}
 		//to do: this error message needs to be corrected
-		expectedOut := fmt.Sprintf("[ERROR]:-data_directory has not been provided for segment with hostname %s and data_directory", valueSeg[0].Hostname)
+		expectedOut := fmt.Sprintf("[ERROR]:-data_directory has not been provided for segment with hostname %s and port %d", valueSeg[0].Hostname, valueSeg[0].Port)
 		if !strings.Contains(result.OutputMsg, expectedOut) {
 			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
