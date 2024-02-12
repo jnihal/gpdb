@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/greenplum-db/gpdb/gp/cli"
 	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
-	
 )
 
 func TestEnvValidation(t *testing.T) {
@@ -162,7 +162,6 @@ func TestEnvValidation(t *testing.T) {
 		}
 
 		result, err := testutils.RunInitCluster("--force", configFile)
-		
 
 		if err != nil {
 			t.Fatalf("Error while intializing cluster: %#v", err)
@@ -172,9 +171,104 @@ func TestEnvValidation(t *testing.T) {
 			t.Fatalf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
 
+		//TO DO - bug id:GPCM-375 with force flag is triggered immediately again initilization fails, below part of code should be  removed once bug is foxed
+		initResult, err := testutils.RunInitCluster("--force", configFile)
+
+		if err != nil {
+			t.Fatalf("Error while intializing cluster: %#v", err)
+		}
+
+		clusterExpectedOut := "[INFO]:-Cluster initialized successfully"
+		if !strings.Contains(result.OutputMsg, expectedOut) {
+			t.Fatalf("got %q, want %q", initResult.OutputMsg, clusterExpectedOut)
+		}
+
 		_, err = testutils.DeleteCluster()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
-}		
+
+	t.Run("check if the coordinator is stopped whenever an error occurs", func(t *testing.T) {
+		var valueSeg []cli.Segment
+		var okSeg bool
+		var value cli.Segment
+		var ok bool
+
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		primarySegs := config.Get("primary-segments-array")
+		if valueSeg, okSeg = primarySegs.([]cli.Segment); !okSeg {
+			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
+		}
+
+		pSegPath := filepath.Join(primarySegs.([]cli.Segment)[0].DataDirectory, "postgresql.conf")
+		host := primarySegs.([]cli.Segment)[0].Hostname
+		coordinator := config.Get("coordinator")
+
+		if value, ok = coordinator.(cli.Segment); !ok {
+			t.Fatalf("unexpected data type for coordinator %T", value)
+		}
+		coordinatorDD := coordinator.(cli.Segment).DataDirectory
+
+		dirDeleted := make(chan bool)
+		go func() {
+			for {
+				select {
+				case <-dirDeleted:
+					return
+				default:
+					cmdStr := fmt.Sprintf("if [ -f %s ]; then echo 'exists'; fi", pSegPath)
+					cmd := exec.Command("ssh", host, cmdStr)
+					output, err := cmd.Output()
+					if err != nil {
+						t.Error(fmt.Sprintf("unexpected error: %#v", err))
+					}
+
+					if strings.TrimSpace(string(output)) == "exists" {
+						cmdStr := fmt.Sprintf("rm -rf %s", pSegPath)
+						cmd := exec.Command("ssh", host, cmdStr)
+						_, err := cmd.CombinedOutput()
+						if err != nil {
+							t.Error(fmt.Sprintf("unexpected error: %#v", err))
+						}
+						dirDeleted <- true
+					}
+					time.Sleep(1 * time.Second)
+				}
+			}
+		}()
+
+		_, initErr := testutils.RunInitCluster(configFile)
+		if e, ok := initErr.(*exec.ExitError); !ok || e.ExitCode() != 1 {
+			t.Fatalf("got %v, want exit status 1", err)
+		}
+
+		cmdName := "pg_ctl"
+		cmdArgs := []string{"status", "-D", coordinatorDD}
+		cmd := exec.Command(cmdName, cmdArgs...)
+		cmdOuput, err := cmd.CombinedOutput()
+
+		expectedOut := "pg_ctl: no server running"
+		if !strings.Contains(string(cmdOuput), expectedOut) {
+			t.Errorf("got %q, want %q", cmdOuput, expectedOut)
+		}
+
+		_, initClusterErr := testutils.RunInitCluster("--force", configFile)
+		if err != nil {
+			t.Fatalf("Error while intializing cluster: %#v", initClusterErr)
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+	})
+}
