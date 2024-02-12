@@ -26,10 +26,10 @@ type Locale struct {
 }
 
 type Segment struct {
-	Hostname      string `mapstructure:"hostname" json:"Hostname"`
+	Hostname      string `mapstructure:"hostname" json:"hostname"`
 	Address       string `mapstructure:"address" json:"address"`
 	Port          int    `mapstructure:"port" json:"port"`
-	DataDirectory string `mapstructure:"data-directory" json:"data-directory"`
+	DataDirectory string `mapstructure:"data-directory" json:"data-directory" yaml:"data-directory" toml:"data-directory"`
 }
 
 type InitConfig struct {

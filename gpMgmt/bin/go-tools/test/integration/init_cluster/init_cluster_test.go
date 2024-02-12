@@ -2,7 +2,6 @@
 package init_cluster
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
@@ -18,12 +17,11 @@ t.Run("check if the cluster is created successfully and run other utilities to v
 	}
 
 	result, err := testutils.RunInitCluster(configFile)
-	fmt.Println(result)
+	
 
 	if err != nil {
-		t.Fatalf("Error while initializing cluster: %#v", err)
+		t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
 	}
-
 	result, err = testutils.RunGpStatus()
 	if err != nil {
 		t.Fatalf("Error while getting status of cluster: %#v", err)
@@ -61,6 +59,44 @@ t.Run("check if the cluster is created successfully and run other utilities to v
 		t.Fatalf("got %q, want %q", result.OutputMsg, expectedOut)
 	}
 
+	_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+})
+t.Run("check if the cluster is created successfully by passing config file with yml extension ", func(t *testing.T) {
+	configFile := testutils.GetTempFile(t, "config.yaml")
+	config := GetDefaultConfig(t)
+
+	err := config.WriteConfigAs(configFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %#v", err)
+	}
+
+	result, err := testutils.RunInitCluster(configFile)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+	}
+	_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+})
+t.Run("check if the cluster is created successfully by passing config file with toml extension ", func(t *testing.T) {
+	configFile := testutils.GetTempFile(t, "config.toml")
+	config := GetDefaultConfig(t)
+
+	err := config.WriteConfigAs(configFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %#v", err)
+	}
+
+	result, err := testutils.RunInitCluster(configFile)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+	}
 	_, err = testutils.DeleteCluster()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
