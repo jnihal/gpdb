@@ -7,7 +7,9 @@ ccp_src/scripts/setup_ssh_to_cluster.sh
 scp cluster_env_files/hostfile_all cdw:/tmp
 tar -xzf gp_binary/gp.tgz
 scp gp cdw:/home/gpadmin/
-echo "UTILITY is: $test"
+echo "UTILITY is: ${test}"
+echo "utility new"
+echo "{$test}"
 
 ssh -n cdw "
     set -eux -o pipefail
