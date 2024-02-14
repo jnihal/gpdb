@@ -7,6 +7,7 @@ ccp_src/scripts/setup_ssh_to_cluster.sh
 scp cluster_env_files/hostfile_all cdw:/tmp
 tar -xzf gp_binary/gp.tgz
 scp gp cdw:/home/gpadmin/
+echo "UTILITY is: $test"
 
 ssh -n cdw "
     set -eux -o pipefail
@@ -18,7 +19,6 @@ ssh -n cdw "
     gpsync -f /tmp/hostfile_all gp =:/usr/local/greenplum-db-devel/bin/gp
     cd /home/gpadmin/gpdb_src/gpMgmt/bin/go-tools
     ./ci/scripts/generate_ssl_cert_multi_host.bash
-    echo "UTILITY is: $test"
 
-    make integration FILE=/tmp/hostfile_all UTILITY="$test"
+    make integration FILE=/tmp/hostfile_all
 "
