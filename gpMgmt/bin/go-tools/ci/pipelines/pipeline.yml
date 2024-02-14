@@ -306,6 +306,8 @@ jobs:
                       - name: cluster_env_files
                       - name: gp_binary
                       - name: ccp-image
+                    params:
+                     test: init_cluster    
                     run:
                       path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
                   image: ccp-image

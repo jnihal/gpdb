@@ -10,6 +10,8 @@ scp gp cdw:/home/gpadmin/
 echo "UTILITY is: ${test}"
 echo "utility new"
 echo "{$test}"
+echo $test
+echo "${test#'{'}"
 
 ssh -n cdw "
     set -eux -o pipefail
@@ -21,6 +23,9 @@ ssh -n cdw "
     gpsync -f /tmp/hostfile_all gp =:/usr/local/greenplum-db-devel/bin/gp
     cd /home/gpadmin/gpdb_src/gpMgmt/bin/go-tools
     ./ci/scripts/generate_ssl_cert_multi_host.bash
+    echo "UTILITY is: ${test}"
+    echo "{$test}"
+    echo "${test#'{'}"
 
-    make integration FILE=/tmp/hostfile_all
+    make integration FILE=/tmp/hostfile_all UTILITY=${test}
 "
