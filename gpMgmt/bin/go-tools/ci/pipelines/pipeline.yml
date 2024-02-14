@@ -1,3 +1,4 @@
+{{- $cm := list "init_cluster" "start" -}}
 anchors:
 - &default_platform
   PLATFORM: rocky8-gpdb7
@@ -79,47 +80,7 @@ anchors:
       bucket: gpdb5-pipeline-dynamic-terraform
       bucket_path: clusters-google/
 
-- &integration_tests_job
-  plan:
-    - get: gp_binary
-      resource: gp_binary
-      passed: [ build ]
-      trigger: true
-    - get: gpdb_binary
-    - get: gpdb_src
-    - get: ccp_src
-    - get: ccp-image
-    - get: terraform.d
-      params:
-        unpack: true
-    - in_parallel:
-        steps:
-          - do:
-              - put: terraform
-                params:
-                  <<: *ccp_default_params
-                  vars:
-                    <<: *ccp_default_vars
-                    instance_type: n1-standard-2
-                    number_of_nodes: 1
-              - task: gen_cluster
-                file: ccp_src/ci/tasks/gen_cluster.yml
-                params:
-                  <<: *ccp_gen_cluster_default_params
-              - task: run_integration_tests
-                config:
-                  platform: linux
-                  inputs:
-                    - name: gpdb_src
-                    - name: ccp_src
-                    - name: cluster_env_files
-                    - name: gp_binary
-                    - name: ccp-image
-                  params:
-                    test: ((params.test_value))
-                  run:
-                    path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
-                image: ccp-image            
+           
 
 
 resource_types:
@@ -313,13 +274,76 @@ jobs:
               <<: *ccp_destroy
             ensure:
               <<: *set_failed
-
-  - name: integration_tests_init
-    <<: *integration_tests_job
-    params:
-      test_value: init_cluster
-
-  - name: integration_tests_start
-    <<: *integration_tests_job
-    params:
-      test_value: start
+  {{- range $os := $cm }}
+  - name: integration_tests_{{ $os }}
+    plan:
+      - get: gp_binary
+        resource: gp_binary
+        passed: [ build ]
+        trigger: true
+      - get: gpdb_binary
+      - get: gpdb_src
+      - get: ccp_src
+      - get: ccp-image
+      - get: terraform.d
+        params:
+          unpack: true
+      - in_parallel:
+          steps:
+            - do:
+                - put: terraform
+                  params:
+                    <<: *ccp_default_params
+                    vars:
+                      <<: *ccp_default_vars
+                      instance_type: n1-standard-2
+                      number_of_nodes: 1
+                - task: gen_cluster
+                  file: ccp_src/ci/tasks/gen_cluster.yml
+                  params:
+                    <<: *ccp_gen_cluster_default_params
+                - task: single_host_tests
+                  config:
+                    platform: linux
+                    inputs:
+                      - name: gpdb_src
+                      - name: ccp_src
+                      - name: cluster_env_files
+                      - name: gp_binary
+                      - name: ccp-image
+                    params:
+                     test: {{ $os }}
+                    run:
+                      path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
+                  image: ccp-image
+            - do:
+                - put: terraform
+                  params:
+                    <<: *ccp_default_params
+                    vars:
+                      <<: *ccp_default_vars
+                      instance_type: n1-standard-2
+                      number_of_nodes: 4
+                - task: gen_cluster
+                  file: ccp_src/ci/tasks/gen_cluster.yml
+                  params:
+                    <<: *ccp_gen_cluster_default_params
+                - task: multi_host_tests
+                  config:
+                    platform: linux
+                    inputs:
+                      - name: gpdb_src
+                      - name: ccp_src
+                      - name: cluster_env_files
+                      - name: gp_binary
+                      - name: ccp-image
+                    params:
+                     test: init_cluster
+                    run:
+                      path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
+                  image: ccp-image
+                  on_success:
+                    <<: *ccp_destroy
+                  ensure:
+                    <<: *set_failed
+  
