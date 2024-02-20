@@ -314,10 +314,6 @@ jobs:
                     run:
                       path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
                   image: ccp-image
-                  on_success:
-                    <<: *ccp_destroy
-                  ensure:
-                    <<: *set_failed
             - do:
                 - put: terraform
                   params:
@@ -390,10 +386,6 @@ jobs:
                     run:
                       path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
                   image: ccp-image
-                  on_success:
-                    <<: *ccp_destroy
-                  ensure:
-                    <<: *set_failed
             - do:
                 - put: terraform
                   params:
@@ -466,10 +458,6 @@ jobs:
                     run:
                       path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
                   image: ccp-image
-                  on_success:
-                    <<: *ccp_destroy
-                  ensure:
-                    <<: *set_failed
             - do:
                 - put: terraform
                   params:
@@ -543,10 +531,6 @@ jobs:
                     run:
                       path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
                   image: ccp-image
-                  on_success:
-                    <<: *ccp_destroy
-                  ensure:
-                    <<: *set_failed
             - do:
                 - put: terraform
                   params:
