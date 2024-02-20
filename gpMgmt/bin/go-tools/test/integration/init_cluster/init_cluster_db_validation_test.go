@@ -258,7 +258,7 @@ func TestPgConfig(t *testing.T) {
 			t.Fatalf("Output does not contain the expected string.\nExpected: %q\nGot: %q", expectedOut, expectedOutput)
 		}
 
-		expectedOut = "[INFO]:-COORDINATOR max_connections not set, will set to default value 150"
+		expectedOut = "[INFO]:- Coordinator max_connections not set, will set to value 150 from CommonConfig"
 		if !strings.Contains(expectedOutput, expectedOut) {
 			t.Fatalf("Output does not contain the expected string.\nExpected: %q\nGot: %q", expectedOut, expectedOutput)
 		}

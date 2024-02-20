@@ -34,7 +34,7 @@ t.Run("check if the cluster is created successfully and run other utilities to v
 
 	result, err = testutils.RunGpCheckCat()
 	if err != nil {
-		t.Fatalf("Error while checkcat cluster: %v", err)
+		t.Fatalf("Error while checkcat cluster: %#v", err)
 	}
 	expectedOut = "Found no catalog issue"
 	if !strings.Contains(result.OutputMsg, expectedOut) {

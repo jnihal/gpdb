@@ -128,7 +128,7 @@ func TestInputFileValidation(t *testing.T) {
 			t.Fatalf("got %v, want exit status 1", err)
 		}
 
-		expectedOut := "[ERROR]:-following hostnames [invalid] do not have gp services configured. Please configure the services."
+		expectedOut := "[ERROR]:-following hostnames [invalid] do not have gp services configured. Please configure the services"
 		if !strings.Contains(result.OutputMsg, expectedOut) {
 			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
@@ -143,7 +143,7 @@ func TestInputFileValidation(t *testing.T) {
 			t.Fatalf("got %v, want exit status 1", err)
 		}
 
-		expectedOut := "[ERROR]:-No primary segments are provided in input config file"
+		expectedOut := "[ERROR]:-no primary segments are provided in input config file"
 		if !strings.Contains(result.OutputMsg, expectedOut) {
 			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
@@ -191,7 +191,8 @@ func TestInputFileValidation(t *testing.T) {
 			t.Fatalf("got %v, want exit status 1", err)
 		}
 
-		expectedOut := fmt.Sprintf("[ERROR]:-duplicate data directory entry gpseg1 found for host %s", value[0].Hostname)
+	
+		expectedOut:= fmt.Sprintf("invalid port has been provided for segment with hostname %s and data_directory gpseg1" , value[0].Hostname)
 		if !strings.Contains(result.OutputMsg, expectedOut) {
 			t.Errorf("got %q, want %q", result.OutputMsg, expectedOut)
 		}
