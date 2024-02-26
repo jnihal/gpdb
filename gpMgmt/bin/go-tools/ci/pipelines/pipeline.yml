@@ -563,7 +563,7 @@ jobs:
                     <<: *set_failed        
                                                                  
 
-  - name: performace_tests
+  - name: performace_gpinit_tests
     plan:
       - get: gp_binary
         resource: gp_binary
@@ -585,12 +585,12 @@ jobs:
                     vars:
                       <<: *ccp_default_vars
                       instance_type: n1-standard-2
-                      number_of_nodes: 1
+                      number_of_nodes: 4
                 - task: gen_cluster
                   file: ccp_src/ci/tasks/gen_cluster.yml
                   params:
                     <<: *ccp_gen_cluster_default_params
-                - task: single_host_tests
+                - task: multi_host_tests
                   config:
                     platform: linux
                     inputs:
@@ -604,6 +604,26 @@ jobs:
                     run:
                       path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
                   image: ccp-image
+                  on_success:
+                    <<: *ccp_destroy
+                  ensure:
+                    <<: *set_failed   
+  
+  - name: performace_gpinit_new_tests
+    plan:
+      - get: gp_binary
+        resource: gp_binary
+        passed: [ build ]
+        trigger: true
+      - get: gpdb_binary
+      - get: gpdb_src
+      - get: ccp_src
+      - get: ccp-image
+      - get: terraform.d
+        params:
+          unpack: true
+      - in_parallel:
+          steps:
             - do:
                 - put: terraform
                   params:
