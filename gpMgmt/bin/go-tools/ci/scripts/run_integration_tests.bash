@@ -18,6 +18,6 @@ ssh -n cdw "
     gpsync -f /tmp/hostfile_all gp =:/usr/local/greenplum-db-devel/bin/gp
     cd /home/gpadmin/gpdb_src/gpMgmt/bin/go-tools
     ./ci/scripts/generate_ssl_cert_multi_host.bash
-
+    exit
     make integration FILE=/tmp/hostfile_all UTILITY=${test}
 "
