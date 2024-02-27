@@ -601,6 +601,7 @@ jobs:
                       - name: gp_binary
                       - name: ccp-image
                     params:
+                     SUDO_ACCESS_ON_HOSTS: 1
                      test: stop  
                     run:
                       path: gpdb_src/gpMgmt/bin/go-tools/ci/scripts/run_integration_tests.bash
