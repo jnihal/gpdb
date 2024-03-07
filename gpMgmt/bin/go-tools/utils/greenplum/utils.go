@@ -3,16 +3,20 @@ package greenplum
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
-	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gpdb/gp/constants"
 	"github.com/greenplum-db/gpdb/gp/utils"
 	"github.com/greenplum-db/gpdb/gp/utils/postgres"
 )
 
+var newDBConnFromEnvironment = dbconn.NewDBConnFromEnvironment
+
 func GetPostgresGpVersion(gpHome string) (string, error) {
 	pgGpVersionCmd := &postgres.Postgres{GpVersion: true}
-	out, err := utils.RunExecCommand(pgGpVersionCmd, gpHome)
+	out, err := utils.RunGpCommand(pgGpVersionCmd, gpHome)
 	if err != nil {
 		return "", fmt.Errorf("fetching postgres gp-version: %w", err)
 	}
@@ -21,7 +25,45 @@ func GetPostgresGpVersion(gpHome string) (string, error) {
 }
 
 func GetDefaultHubLogDir() string {
-	currentUser, _ := operating.System.CurrentUser()
+	currentUser, _ := utils.System.CurrentUser()
 
 	return filepath.Join(currentUser.HomeDir, "gpAdminLogs")
+}
+
+// GetCoordinatorConn creates a connection object for the coordinator segment
+// given only its data directory. This function is expected to be called on the
+// coordinator host only. By default it creates a non utility mode connection
+// and uses the 'template1' database if no database is provided
+func GetCoordinatorConn(datadir, dbname string, utility ...bool) (*dbconn.DBConn, error) {
+	value, err := postgres.GetConfigValue(datadir, "port")
+	if err != nil {
+		return nil, err
+	}
+
+	port, err := strconv.Atoi(value)
+	if err != nil {
+		return nil, err
+	}
+
+	if dbname == "" {
+		dbname = constants.DefaultDatabase
+	}
+	conn := newDBConnFromEnvironment(dbname)
+	conn.Port = port
+
+	err = conn.Connect(1, utility...)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+// used only for testing
+func SetNewDBConnFromEnvironment(customFunc func(dbname string) *dbconn.DBConn) {
+	newDBConnFromEnvironment = customFunc
+}
+
+func ResetNewDBConnFromEnvironment() {
+	newDBConnFromEnvironment = dbconn.NewDBConnFromEnvironment
 }
