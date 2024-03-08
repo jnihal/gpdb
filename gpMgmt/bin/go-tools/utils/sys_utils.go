@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"io/fs"
 	"net"
 	"os"
@@ -10,6 +9,8 @@ import (
 	"os/user"
 	"strconv"
 	"strings"
+
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 )
 
 var System = InitializeSystemFunctions()
