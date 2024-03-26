@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-
 	"github.com/greenplum-db/gpdb/gp/cli"
 	"github.com/greenplum-db/gpdb/gp/test/integration/testutils"
 )
@@ -96,6 +95,8 @@ func TestEnvValidation(t *testing.T) {
 
 		configFile := testutils.GetTempFile(t, "config.json")
 		config := GetDefaultConfig(t)
+		fmt.Println("PRINTING JSON")
+		fmt.Println(config.AllSettings())
 
 		err := config.WriteConfigAs(configFile)
 		if err != nil {

@@ -213,11 +213,15 @@ func TestPgConfig(t *testing.T) {
 		defer conn.Close()
 
 		segConfigs, err := cluster.GetSegmentConfiguration(conn, false)
+		fmt.Println("seg config")
+		fmt.Println(segConfigs)
 		if err != nil {
 			t.Fatalf("Error getting segment configuration: %v", err)
 		}
 
 		resultSegs := make([]cli.Segment, len(segConfigs))
+		fmt.Println("result seg")
+		fmt.Println(resultSegs)
 		for i, seg := range segConfigs {
 			resultSegs[i] = cli.Segment{
 				Hostname:      seg.Hostname,
@@ -226,6 +230,9 @@ func TestPgConfig(t *testing.T) {
 				Address:       seg.Hostname,
 			}
 		}
+
+		fmt.Println("result seg")
+		fmt.Println(resultSegs)
 
 		if !reflect.DeepEqual(resultSegs, expectedSegs) {
 			t.Fatalf("got %+v, want %+v", resultSegs, expectedSegs)
@@ -277,6 +284,7 @@ func TestPgConfig(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
+
 }
 
 func TestCollations(t *testing.T) {
@@ -537,6 +545,686 @@ func TestPgHbaConfValidation(t *testing.T) {
 
 		configFile := testutils.GetTempFile(t, "config.json")
 		config := GetDefaultConfig(t)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		SetConfigKey(t, configFile, "hba-hostnames", false, true)
+
+		result, err := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		}
+
+		coordinator := config.Get("coordinator")
+		if value, ok = coordinator.(cli.Segment); !ok {
+			t.Fatalf("unexpected data type for coordinator %T", value)
+		}
+
+		filePathCord := filepath.Join(coordinator.(cli.Segment).DataDirectory, "pg_hba.conf")
+		hostCord := coordinator.(cli.Segment).Hostname
+		cmdStr := "whoami"
+		cmd := exec.Command("ssh", hostCord, cmdStr)
+		output, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("unexpected error : %v", err)
+		}
+
+		resultCord := strings.TrimSpace(string(output))
+		cmdStrCord := "ip -4 addr show | grep inet | grep -v 127.0.0.1/8 | awk '{print $2}'"
+		cmdCord := exec.Command("ssh", hostCord, cmdStrCord)
+		outputCord, err := cmdCord.Output()
+		if err != nil {
+			t.Fatalf("unexpected error : %v", err)
+		}
+
+		resultCordValue := string(outputCord)
+		firstCordValue := strings.Split(resultCordValue, "\n")[0]
+		pgHbaLine := fmt.Sprintf("host\tall\t%s\t%s\ttrust", resultCord, firstCordValue)
+		cmdStrCordValue := fmt.Sprintf("/bin/bash -c 'cat %s | grep \"%s\"'", filePathCord, pgHbaLine)
+		cmdCordValue := exec.Command("ssh", hostCord, cmdStrCordValue)
+		_, err = cmdCordValue.CombinedOutput()
+		if err != nil {
+			t.Fatalf("unexpected error : %v", err)
+		}
+
+		primarySegs := config.Get("primary-segments-array")
+		if valueSeg, okSeg = primarySegs.([]cli.Segment); !okSeg {
+			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
+		}
+		filePathSeg := filepath.Join(primarySegs.([]cli.Segment)[0].DataDirectory, "pg_hba.conf")
+		hostSegValue := primarySegs.([]cli.Segment)[0].Hostname
+		cmdStrSegValue := "whoami"
+		cmdSegvalue := exec.Command("ssh", hostSegValue, cmdStrSegValue)
+		outputSeg, errSeg := cmdSegvalue.Output()
+		if errSeg != nil {
+			t.Fatalf("unexpected error : %v", errSeg)
+		}
+
+		resultSeg := strings.TrimSpace(string(outputSeg))
+		cmdStrSeg := "ip -4 addr show | grep inet | grep -v 127.0.0.1/8 | awk '{print $2}'"
+		cmdSegValueNew := exec.Command("ssh", hostSegValue, cmdStrSeg)
+		outputSegNew, err := cmdSegValueNew.Output()
+		if err != nil {
+			t.Fatalf("unexpected error : %v", err)
+		}
+
+		resultSegValue := string(outputSegNew)
+		firstValueNew := strings.Split(resultSegValue, "\n")[0]
+		pgHbaLineNew := fmt.Sprintf("host\tall\t%s\t%s\ttrust", resultSeg, firstValueNew)
+		cmdStrSegNew := fmt.Sprintf("/bin/bash -c 'cat %s | grep \"%s\"'", filePathSeg, pgHbaLineNew)
+		cmdSegNew := exec.Command("ssh", hostSegValue, cmdStrSegNew)
+		_, err = cmdSegNew.CombinedOutput()
+		if err != nil {
+			t.Fatalf("unexpected error : %v", err)
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestExpansionValidation(t *testing.T) {
+	//test once and delete below case it include both just for reference
+	t.Run("validate expansion", func(t *testing.T) {
+		var value cli.Segment
+		var valueSeg []cli.Segment
+		var ok bool
+
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		coordinator := config.Get("coordinator")
+		if value, ok = coordinator.(cli.Segment); !ok {
+			t.Fatalf("unexpected data type for coordinator %T", value)
+		}
+
+		primarySegs := config.Get("primary-segments-array")
+		if valueSeg, ok = primarySegs.([]cli.Segment); !ok {
+			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
+		}
+
+		// uncomment below lines once code is ready
+		// result, err := testutils.RunInitCluster(configFile)
+		// if err != nil {
+		// 	t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		// }
+
+		// conn := dbconn.NewDBConnFromEnvironment("postgres")
+		// if err := conn.Connect(1); err != nil {
+		// 	t.Fatalf("Error connecting to the database: %v", err)
+		// }
+		// defer conn.Close()
+
+		//segConfigs, err := cluster.GetSegmentConfiguration(conn, false)
+		// if err != nil {
+		// 	t.Fatalf("Error getting segment configuration: %v", err)
+		// }
+		// fmt.Printf("all primary segs")
+		// fmt.Println(segConfigs)
+
+		// Dbelow is for group
+		segConfigs := []cluster.SegConfig{
+			{DbID: 2, ContentID: 0, Role: "p", Port: 7001, Hostname: "sdw0", DataDir: "/tmp/demo/primary1"},
+			{DbID: 3, ContentID: 1, Role: "p", Port: 7002, Hostname: "sdw0", DataDir: "/tmp/demo/primary2"},
+			{DbID: 4, ContentID: 2, Role: "p", Port: 7003, Hostname: "sdw1", DataDir: "/tmp/demo/primary3"},
+			{DbID: 8, ContentID: 3, Role: "p", Port: 7007, Hostname: "sdw1", DataDir: "/tmp/demo/primary4"},
+			{DbID: 5, ContentID: 0, Role: "m", Port: 7004, Hostname: "sdw1", DataDir: "/tmp/demo/mirror1"},
+			{DbID: 6, ContentID: 1, Role: "m", Port: 7005, Hostname: "sdw1", DataDir: "/tmp/demo/mirror2"},
+			{DbID: 7, ContentID: 2, Role: "m", Port: 7006, Hostname: "sdw0", DataDir: "/tmp/demo/mirror3"},
+			{DbID: 9, ContentID: 3, Role: "m", Port: 7008, Hostname: "sdw0", DataDir: "/tmp/demo/mirror4"},
+		}
+		// below is for spread
+		// segConfigs := []cluster.SegConfig{
+		// 	{DbID: 2, ContentID: 0, Role: "p", Port: 7001, Hostname: "sdw0", DataDir: "/tmp/demo/primary1"},
+		// 	{DbID: 3, ContentID: 1, Role: "p", Port: 7002, Hostname: "sdw0", DataDir: "/tmp/demo/primary2"},
+		// 	{DbID: 10, ContentID: 4, Role: "p", Port: 7009, Hostname: "sdw0", DataDir: "/tmp/demo/primary5"},
+		// 	{DbID: 3, ContentID: 1, Role: "p", Port: 7002, Hostname: "sdw0", DataDir: "/tmp/demo/primary2"},
+		// 	{DbID: 4, ContentID: 2, Role: "p", Port: 7003, Hostname: "sdw1", DataDir: "/tmp/demo/primary3"},
+		// 	{DbID: 8, ContentID: 3, Role: "p", Port: 7007, Hostname: "sdw1", DataDir: "/tmp/demo/primary4"},
+		// 	{DbID: 5, ContentID: 0, Role: "m", Port: 7004, Hostname: "sdw1", DataDir: "/tmp/demo/mirror1"},
+		// 	{DbID: 6, ContentID: 1, Role: "m", Port: 7005, Hostname: "sdw2", DataDir: "/tmp/demo/mirror2"},
+		// 	{DbID: 11, ContentID: 4, Role: "m", Port: 80001, Hostname: "sdw3", DataDir: "/tmp/demo/mirror5"},
+		// 	{DbID: 7, ContentID: 2, Role: "m", Port: 7006, Hostname: "sdw0", DataDir: "/tmp/demo/mirror3"},
+		// 	{DbID: 9, ContentID: 3, Role: "m", Port: 7008, Hostname: "sdw2", DataDir: "/tmp/demo/mirror4"},
+		// }
+		//decalare variable hostname and get it from config hostlist may be hostlist[0] ->u will get sdw0 and remove localhost and replace with hostna,e
+
+		primaries := make(map[int][]cluster.SegConfig)
+		for _, seg := range segConfigs {
+			if seg.Role == "p" && seg.Hostname == "sdw0" { //include code to skip conetent id -1
+				primaries[seg.ContentID] = append(primaries[seg.ContentID], seg)
+			}
+		}
+
+		// Step 3: Fetch corresponding mirrors and their hosts
+		mirrors := make(map[int][]cluster.SegConfig)
+		for _, seg := range segConfigs {
+			if seg.Role == "m" {
+				if primary, ok := primaries[seg.ContentID]; ok {
+					mirrors[primary[0].ContentID] = append(mirrors[primary[0].ContentID], seg)
+				}
+			}
+		}
+		//uncomment below once code is ready
+		//mirroringType := config.Get("mirroring-type")
+		mirroringType := "group"
+
+		// Step 4: Validate spread and group mirroring
+		var mirrorHostnames []string
+		seen := make(map[string]bool)
+		var primaryHostnames []string
+
+		for _, configs := range mirrors {
+			for _, config := range configs {
+				mirrorHostnames = append(mirrorHostnames, config.Hostname)
+				seen[config.Hostname] = true
+			}
+		}
+
+		for _, configs := range primaries {
+			for _, config := range configs {
+				primaryHostnames = append(primaryHostnames, config.Hostname)
+			}
+		}
+
+		for _, mirrorHostname := range mirrorHostnames {
+			for _, primaryHostname := range primaryHostnames {
+				if mirrorHostname == primaryHostname {
+					t.Fatalf("Error: Mirrors are hosted on the same host as primary: %s", mirrorHostname)
+				}
+			}
+		}
+
+		if mirroringType == "group" {
+			if len(seen) > 1 {
+				t.Fatalf("Error: Hostnames are not all the same: %v", mirrorHostnames)
+			}
+		} else if mirroringType == "spread" {
+			if len(seen) != len(mirrorHostnames) {
+				t.Fatalf("Error: Hostnames are not all different. %v", mirrorHostnames)
+			}
+		}
+
+		//NOTE: EVERYTHING IS WORKING FINE ADD LOGIC TO CHECK WHETHR MIrROR HOSTDS are differnt from primary host
+		// 	primaryHostname := primaryList[0].Hostname // Get the hostname of the primary
+		//and then comapre each mirror host is difernt from primary
+		//ALso optmise the group and sread code u can reduce code numbers
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+	})
+
+	t.Run("validate expansion with group mirroring", func(t *testing.T) {
+		var value cli.Segment
+		var valueSeg []cli.Segment
+		var ok bool
+
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		coordinator := config.Get("coordinator")
+		if value, ok = coordinator.(cli.Segment); !ok {
+			t.Fatalf("unexpected data type for coordinator %T", value)
+		}
+
+		primarySegs := config.Get("primary-segments-array")
+		if valueSeg, ok = primarySegs.([]cli.Segment); !ok {
+			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
+		}
+
+		// uncomment below lines once code is ready
+		// result, err := testutils.RunInitCluster(configFile)
+		// if err != nil {
+		// 	t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		// }
+
+		// conn := dbconn.NewDBConnFromEnvironment("postgres")
+		// if err := conn.Connect(1); err != nil {
+		// 	t.Fatalf("Error connecting to the database: %v", err)
+		// }
+		// defer conn.Close()
+
+		//segConfigs, err := cluster.GetSegmentConfiguration(conn, false)
+		// if err != nil {
+		// 	t.Fatalf("Error getting segment configuration: %v", err)
+		// }
+		// fmt.Printf("all primary segs")
+		// fmt.Println(segConfigs)
+
+		// Dbelow is for group
+		segConfigs := []cluster.SegConfig{
+			{DbID: 2, ContentID: 0, Role: "p", Port: 7001, Hostname: "sdw0", DataDir: "/tmp/demo/primary1"},
+			{DbID: 3, ContentID: 1, Role: "p", Port: 7002, Hostname: "sdw0", DataDir: "/tmp/demo/primary2"},
+			{DbID: 4, ContentID: 2, Role: "p", Port: 7003, Hostname: "sdw1", DataDir: "/tmp/demo/primary3"},
+			{DbID: 8, ContentID: 3, Role: "p", Port: 7007, Hostname: "sdw1", DataDir: "/tmp/demo/primary4"},
+			{DbID: 5, ContentID: 0, Role: "m", Port: 7004, Hostname: "sdw1", DataDir: "/tmp/demo/mirror1"},
+			{DbID: 6, ContentID: 1, Role: "m", Port: 7005, Hostname: "sdw1", DataDir: "/tmp/demo/mirror2"},
+			{DbID: 7, ContentID: 2, Role: "m", Port: 7006, Hostname: "sdw0", DataDir: "/tmp/demo/mirror3"},
+			{DbID: 9, ContentID: 3, Role: "m", Port: 7008, Hostname: "sdw0", DataDir: "/tmp/demo/mirror4"},
+		}
+
+		//decalare variable hostname and get it from config hostlist may be hostlist[0] ->u will get sdw0 and remove localhost and replace with hostna,e
+		//hostname := config.Get(hostList[0])
+		primaries := make(map[int][]cluster.SegConfig)
+		for _, seg := range segConfigs {
+			if seg.Role == "p" && seg.Hostname == "sdw0" { //include code to skip conetent id -1
+				primaries[seg.ContentID] = append(primaries[seg.ContentID], seg)
+			}
+		}
+
+		// Step 3: Fetch corresponding mirrors and their hosts
+		mirrors := make(map[int][]cluster.SegConfig)
+		for _, seg := range segConfigs {
+			if seg.Role == "m" {
+				if primary, ok := primaries[seg.ContentID]; ok {
+					mirrors[primary[0].ContentID] = append(mirrors[primary[0].ContentID], seg)
+				}
+			}
+		}
+		//uncomment below once code is ready not need becz by default it iakes spread
+
+		//mirroringType := config.Get("mirroring-type")
+		//config.Set("mirroring-type", "group")
+
+		if err := config.WriteConfigAs(configFile); err != nil {
+			t.Fatalf("failed to write config to file: %v", err)
+		}
+		// Step 4: Validate spread and group mirroring
+		var mirrorHostnames []string
+		seen := make(map[string]bool)
+		var primaryHostnames []string
+
+		for _, configs := range mirrors {
+			for _, config := range configs {
+				mirrorHostnames = append(mirrorHostnames, config.Hostname)
+				seen[config.Hostname] = true
+			}
+		}
+
+		for _, configs := range primaries {
+			for _, config := range configs {
+				primaryHostnames = append(primaryHostnames, config.Hostname)
+			}
+		}
+
+		for _, mirrorHostname := range mirrorHostnames {
+			for _, primaryHostname := range primaryHostnames {
+				if mirrorHostname == primaryHostname {
+					t.Fatalf("Error: Mirrors are hosted on the same host as primary: %s", mirrorHostname)
+				}
+			}
+		}
+
+		if len(seen) > 1 {
+			t.Fatalf("Error: Group mirroing validation Failed: All hostnames are not same for mirrors: %v", mirrorHostnames)
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+	})
+
+	t.Run("validate expansion with spread mirroring", func(t *testing.T) {
+		var value cli.Segment
+		var valueSeg []cli.Segment
+		var ok bool
+
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		coordinator := config.Get("coordinator")
+		if value, ok = coordinator.(cli.Segment); !ok {
+			t.Fatalf("unexpected data type for coordinator %T", value)
+		}
+
+		primarySegs := config.Get("primary-segments-array")
+		if valueSeg, ok = primarySegs.([]cli.Segment); !ok {
+			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
+		}
+
+		// uncomment below lines once code is ready
+		// result, err := testutils.RunInitCluster(configFile)
+		// if err != nil {
+		// 	t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		// }
+
+		// conn := dbconn.NewDBConnFromEnvironment("postgres")
+		// if err := conn.Connect(1); err != nil {
+		// 	t.Fatalf("Error connecting to the database: %v", err)
+		// }
+		// defer conn.Close()
+
+		//segConfigs, err := cluster.GetSegmentConfiguration(conn, false)
+		// if err != nil {
+		// 	t.Fatalf("Error getting segment configuration: %v", err)
+		// }
+		// fmt.Printf("all primary segs")
+		// fmt.Println(segConfigs)
+
+		// below is for spread
+		segConfigs := []cluster.SegConfig{
+			{DbID: 2, ContentID: 0, Role: "p", Port: 7001, Hostname: "sdw0", DataDir: "/tmp/demo/primary1"},
+			{DbID: 3, ContentID: 1, Role: "p", Port: 7002, Hostname: "sdw0", DataDir: "/tmp/demo/primary2"},
+			{DbID: 10, ContentID: 4, Role: "p", Port: 7009, Hostname: "sdw0", DataDir: "/tmp/demo/primary5"},
+			{DbID: 3, ContentID: 1, Role: "p", Port: 7002, Hostname: "sdw0", DataDir: "/tmp/demo/primary2"},
+			{DbID: 4, ContentID: 2, Role: "p", Port: 7003, Hostname: "sdw1", DataDir: "/tmp/demo/primary3"},
+			{DbID: 8, ContentID: 3, Role: "p", Port: 7007, Hostname: "sdw1", DataDir: "/tmp/demo/primary4"},
+			{DbID: 5, ContentID: 0, Role: "m", Port: 7004, Hostname: "sdw1", DataDir: "/tmp/demo/mirror1"},
+			{DbID: 6, ContentID: 1, Role: "m", Port: 7005, Hostname: "sdw2", DataDir: "/tmp/demo/mirror2"},
+			{DbID: 11, ContentID: 4, Role: "m", Port: 80001, Hostname: "sdw3", DataDir: "/tmp/demo/mirror5"},
+			{DbID: 7, ContentID: 2, Role: "m", Port: 7006, Hostname: "sdw0", DataDir: "/tmp/demo/mirror3"},
+			{DbID: 9, ContentID: 3, Role: "m", Port: 7008, Hostname: "sdw2", DataDir: "/tmp/demo/mirror4"},
+		}
+
+		//decalare variable hostname and get it from config hostlist may be hostlist[0] ->u will get sdw0 and remove localhost and replace with hostna,e
+		//hostname := config.Get(hostList[0])
+		primaries := make(map[int][]cluster.SegConfig)
+		for _, seg := range segConfigs {
+			if seg.Role == "p" && seg.Hostname == "sdw0" { //include code to skip conetent id -1
+				primaries[seg.ContentID] = append(primaries[seg.ContentID], seg)
+			}
+		}
+
+		// Step 3: Fetch corresponding mirrors and their hosts
+		mirrors := make(map[int][]cluster.SegConfig)
+		for _, seg := range segConfigs {
+			if seg.Role == "m" {
+				if primary, ok := primaries[seg.ContentID]; ok {
+					mirrors[primary[0].ContentID] = append(mirrors[primary[0].ContentID], seg)
+				}
+			}
+		}
+		//uncomment below once code is ready // may be not needed
+		//mirroringType := config.Get("mirroring-type")
+		//mirroringType := "group"
+
+		// Step 4: Validate spread and group mirroring
+		var mirrorHostnames []string
+		seen := make(map[string]bool)
+		var primaryHostnames []string
+
+		for _, configs := range mirrors {
+			for _, config := range configs {
+				mirrorHostnames = append(mirrorHostnames, config.Hostname)
+				seen[config.Hostname] = true
+			}
+		}
+
+		for _, configs := range primaries {
+			for _, config := range configs {
+				primaryHostnames = append(primaryHostnames, config.Hostname)
+			}
+		}
+
+		for _, mirrorHostname := range mirrorHostnames {
+			for _, primaryHostname := range primaryHostnames {
+				if mirrorHostname == primaryHostname {
+					t.Fatalf("Error: Mirrors are hosted on the same host as primary: %s", mirrorHostname)
+				}
+			}
+		}
+
+		if len(seen) != len(mirrorHostnames) {
+			t.Fatalf("Error: Spread mirroing Validation Failed, Hostnames are not different. %v", mirrorHostnames)
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+	})
+
+	t.Run("validate expansion detection with proper number of primary and mirror directories", func(t *testing.T) {
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t, true)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+		primaryDirs := len(config.GetStringSlice("primary-data-directories"))
+		mirrorDirs := len(config.GetStringSlice("mirror-data-directories"))
+
+		//hostList := len(config.GetStringSlice("hostlist"))
+		hostList := 4
+
+		fmt.Println("primary dir")
+		fmt.Println(primaryDirs)
+
+		fmt.Println("mirror dir")
+		fmt.Println(mirrorDirs)
+
+		fmt.Println("hostlist dir")
+		fmt.Println(hostList)
+
+		//validate the no of dd should be host* no of host
+
+		//uncomment below lines once code is ready
+		// result, err := testutils.RunInitCluster(configFile)
+		// if err != nil {
+		// 	t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		// }
+
+		// expectedOut := "[INFO]:-Cluster initialized successfully"
+		// if !strings.Contains(result.OutputMsg, expectedOut) {
+		// 	t.Fatalf("got %q, want %q", result.OutputMsg, expectedOut)
+		// }
+
+		// conn := dbconn.NewDBConnFromEnvironment("postgres")
+		// if err := conn.Connect(1); err != nil {
+		// 	t.Fatalf("Error connecting to the database: %v", err)
+		// }
+		// defer conn.Close()
+
+		// segConfigs, err := cluster.GetSegmentConfiguration(conn, false)
+		// if err != nil {
+		// 	t.Fatalf("Error getting segment configuration: %v", err)
+		// }
+		// fmt.Printf("all primary segs")
+		// fmt.Println(segConfigs)
+
+		// below is for spread
+		segConfigs := []cluster.SegConfig{
+			{DbID: 2, ContentID: 0, Role: "p", Port: 7001, Hostname: "sdw0", DataDir: "/tmp/demo/primary1"},
+			{DbID: 3, ContentID: 1, Role: "p", Port: 7002, Hostname: "sdw0", DataDir: "/tmp/demo/primary2"},
+			{DbID: 10, ContentID: 4, Role: "p", Port: 7009, Hostname: "sdw0", DataDir: "/tmp/demo/primary5"},
+			{DbID: 3, ContentID: 8, Role: "p", Port: 7002, Hostname: "sdw0", DataDir: "/tmp/demo/primary2"},
+			// {DbID: 4, ContentID: 5, Role: "p", Port: 7003, Hostname: "sdw1", DataDir: "/tmp/demo/primary3"},
+			// {DbID: 8, ContentID: 3, Role: "p", Port: 7007, Hostname: "sdw1", DataDir: "/tmp/demo/primary4"},
+			{DbID: 5, ContentID: 0, Role: "m", Port: 7004, Hostname: "sdw1", DataDir: "/tmp/demo/mirror1"},
+			{DbID: 6, ContentID: 1, Role: "m", Port: 7005, Hostname: "sdw2", DataDir: "/tmp/demo/mirror2"},
+			{DbID: 11, ContentID: 4, Role: "m", Port: 80001, Hostname: "sdw3", DataDir: "/tmp/demo/mirror5"},
+			{DbID: 7, ContentID: 8, Role: "m", Port: 7006, Hostname: "sdw0", DataDir: "/tmp/demo/mirror3"},
+			//{DbID: 9, ContentID: 5, Role: "m", Port: 7008, Hostname: "sdw2", DataDir: "/tmp/demo/mirror4"},
+		}
+
+		var primaryDataDirs []string
+		var mirrorDataDirs []string
+		hosts := make(map[string]bool) // Map to store unique hosts
+
+		for _, seg := range segConfigs {
+			if seg.Role == "p" {
+				primaryDataDirs = append(primaryDataDirs, seg.DataDir)
+				hosts[seg.Hostname] = true
+
+			} else if seg.Role == "m" {
+				mirrorDataDirs = append(mirrorDataDirs, seg.DataDir)
+				hosts[seg.Hostname] = true
+
+			}
+		}
+
+		primaryCount := len(primaryDataDirs)
+		mirrorCount := len(mirrorDataDirs)
+		hostsCount := len(hosts)
+
+		fmt.Printf("Primary Count: %d\n", primaryCount)
+		fmt.Printf("Mirror Count: %d\n", mirrorCount)
+
+		actualPrimaryCount := hostsCount * len(primaryDataDirs)
+		actualMirrorCount := hostsCount * len(mirrorDataDirs)
+
+		expectedPrimaryCount := primaryDirs * hostList
+		expectedMirrorCount := mirrorDirs * hostList
+
+		if actualPrimaryCount != expectedPrimaryCount {
+			t.Fatalf("Error: Primary data directories count mismatch: expected %d, got %d", expectedPrimaryCount, primaryCount)
+		}
+
+		if actualMirrorCount != expectedMirrorCount {
+			t.Fatalf("Error: Mirror data directories count mismatch: expected %d, got %d", expectedMirrorCount, mirrorCount)
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		//NOTE: Test with hardcoded hosts list and see and uderstand code als
+
+	})
+
+	t.Run("Verify default values are used correctly with expansion support", func(t *testing.T) {
+		var expectedOut string
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t, true)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		result, err := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		}
+		expectedOutput := result.OutputMsg
+		// Add any other default values which is used for mirror support
+		expectedOut = "[INFO]:-Could not find encoding in cluster config, defaulting to UTF-8"
+		if !strings.Contains(expectedOutput, expectedOut) {
+			t.Fatalf("Output does not contain the expected string.\nExpected: %q\nGot: %q", expectedOut, expectedOutput)
+		}
+
+		expectedOut = "[INFO]:- Coordinator max_connections not set, will set to value 150 from CommonConfig"
+		if !strings.Contains(expectedOutput, expectedOut) {
+			t.Fatalf("Output does not contain the expected string.\nExpected: %q\nGot: %q", expectedOut, expectedOutput)
+		}
+
+		expectedOut = "[INFO]:-shared_buffers is not set, will set to default value 128000kB"
+		if !strings.Contains(expectedOutput, expectedOut) {
+			t.Fatalf("Output does not contain the expected string.\nExpected: %q\nGot: %q", expectedOut, expectedOutput)
+		}
+
+		testutils.AssertPgConfig(t, "max_connections", "150", -1)
+		testutils.AssertPgConfig(t, "shared_buffers", "125MB", -1)
+		testutils.AssertPgConfig(t, "client_encoding", "UTF8", -1)
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	//NOTE: Not sure how below 2 cases related to HBA conf will behave test once and see result
+	/* Bug:concurse is failing to resolve ip to hostname*/
+	/*t.Run("verify expansion when hbahostname is true", func(t *testing.T) {
+		var value cli.Segment
+		var ok bool
+		var valueSeg []cli.Segment
+		var okSeg bool
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t, true)
+
+		err := config.WriteConfigAs(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %#v", err)
+		}
+
+		SetConfigKey(t, configFile, "hba-hostnames", true, true)
+
+		result, err := testutils.RunInitCluster(configFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %s, %v", result.OutputMsg, err)
+		}
+
+		coordinator := config.Get("coordinator")
+		if value, ok = coordinator.(cli.Segment); !ok {
+			t.Fatalf("unexpected data type for coordinator %T", value)
+		}
+
+		filePathCord := filepath.Join(coordinator.(cli.Segment).DataDirectory, "pg_hba.conf")
+		hostCord := coordinator.(cli.Segment).Hostname
+		cmdStr := "whoami"
+		cmd := exec.Command("ssh", hostCord, cmdStr)
+		output, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("unexpected error : %v", err)
+		}
+
+		resultCord := strings.TrimSpace(string(output))
+		pgHbaLine := fmt.Sprintf("host\tall\t%s\t%s\ttrust", resultCord, coordinator.(cli.Segment).Hostname)
+		cmdStrCord := fmt.Sprintf("/bin/bash -c 'cat %s | grep \"%s\"'", filePathCord, pgHbaLine)
+		cmdCord := exec.Command("ssh", hostCord, cmdStrCord)
+		_, err = cmdCord.CombinedOutput()
+		if err != nil {
+			t.Fatalf("unexpected error : %v", err)
+		}
+
+		primarySegs := config.Get("primary-segments-array")
+		if valueSeg, okSeg = primarySegs.([]cli.Segment); !okSeg {
+			t.Fatalf("unexpected data type for primary-segments-array %T", valueSeg)
+		}
+
+		pgHbaLineSeg := fmt.Sprintf("host\tall\tall\t%s\ttrust", primarySegs.([]cli.Segment)[0].Hostname)
+		filePathSeg := filepath.Join(primarySegs.([]cli.Segment)[0].DataDirectory, "pg_hba.conf")
+		cmdStr_seg := fmt.Sprintf("/bin/bash -c 'cat %s | grep \"%s\"'", filePathSeg, pgHbaLineSeg)
+		hostSeg := primarySegs.([]cli.Segment)[0].Hostname
+		cmdSeg := exec.Command("ssh", hostSeg, cmdStr_seg)
+		_, err = cmdSeg.CombinedOutput()
+		if err != nil {
+			t.Fatalf("unexpected error : %v", err)
+		}
+
+		_, err = testutils.DeleteCluster()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})*/
+
+	t.Run(" verify expansion when hbahostname is false", func(t *testing.T) {
+		var value cli.Segment
+		var ok bool
+		var valueSeg []cli.Segment
+		var okSeg bool
+
+		configFile := testutils.GetTempFile(t, "config.json")
+		config := GetDefaultConfig(t, true)
 
 		err := config.WriteConfigAs(configFile)
 		if err != nil {

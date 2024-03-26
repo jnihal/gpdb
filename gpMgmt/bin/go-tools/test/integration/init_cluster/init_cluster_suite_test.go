@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	hostList []string
-	hostfile = flag.String("hostfile", "", "file containing list of hosts")
+	hostList           []string
+	hostfile           = flag.String("hostfile", "", "file containing list of hosts")
 	coordinatorDatadir = testutils.DEFAULT_COORDINATOR_DATADIR
 )
 

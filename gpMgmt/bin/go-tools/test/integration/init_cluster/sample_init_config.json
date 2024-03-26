@@ -4,11 +4,5 @@
     "address":"",
     "port":"",
     "data-directory":""
-  },
-  "primary-segments-array":[
-    { "hostname":"", "address":"", "port":"", "data-directory":"" },
-    { "hostname":"", "address":"", "port":"", "data-directory":"" },
-    { "hostname":"", "address":"", "port":"", "data-directory":"" },
-    { "hostname":"", "address":"", "port":"", "data-directory":"" }
-  ]
+  }
 }
