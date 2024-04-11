@@ -308,10 +308,10 @@ func TestPgConfig(t *testing.T) {
 			t.Fatalf("got %+v, want %+v", resultSegs, primarySegments)
 		}
 
-		_, err = testutils.DeleteCluster()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		//		_, err = testutils.DeleteCluster()
+		//		if err != nil {
+		//			t.Fatalf("unexpected error: %v", err)
+		//		}
 	})
 
 	t.Run("initialize cluster with default config and verify default values used correctly", func(t *testing.T) {
@@ -725,7 +725,6 @@ func TestPgHbaConfValidation(t *testing.T) {
 			t.Fatalf("unexpected data type for segment-array %T", primarySegs)
 		}
 
-		//primaryHostName = valueSegPair[0].Primary.Hostname
 		filePathSeg := filepath.Join(valueSegPair[0].Mirror.DataDirectory, "pg_hba.conf")
 		hostSegValue := valueSegPair[0].Mirror.Hostname
 		cmdStrSegValue := "whoami"
@@ -734,13 +733,19 @@ func TestPgHbaConfValidation(t *testing.T) {
 		if errSeg != nil {
 			t.Fatalf("unexpected error : %v", errSeg)
 		}
-
 		resultSeg := strings.TrimSpace(string(outputSeg))
 
-		//resultSegValue := string(outputSegNew)
-		//firstValueNew := strings.Split(resultSegValue, "\n")[0]
 		primaryHostName := valueSegPair[0].Primary.Hostname
-		pgHbaLineNew := fmt.Sprintf("host\treplication\t%s\t%s\ttrust", resultSeg, primaryHostName)
+		cmdStrSeg := "ip -4 addr show | grep inet | grep -v 127.0.0.1/8 | awk '{print $2}'"
+		cmdSegValueNew := exec.Command("ssh", primaryHostName, cmdStrSeg)
+		outputSegNew, err := cmdSegValueNew.Output()
+		if err != nil {
+			t.Fatalf("unexpected error : %v", err)
+		}
+
+		resultSegValue := string(outputSegNew)
+		firstValueNew := strings.Split(resultSegValue, "\n")[0]
+		pgHbaLineNew := fmt.Sprintf("host\treplication\t%s\t%s\ttrust", resultSeg, firstValueNew)
 		cmdStrSegNew := fmt.Sprintf("/bin/bash -c 'cat %s | grep \"%s\"'", filePathSeg, pgHbaLineNew)
 		cmdSegNew := exec.Command("ssh", hostSegValue, cmdStrSegNew)
 		_, err = cmdSegNew.CombinedOutput()
