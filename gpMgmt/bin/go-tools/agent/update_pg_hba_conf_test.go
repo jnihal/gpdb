@@ -88,7 +88,7 @@ host	all	gpadmin	sdw2	trust`,
 			}
 			defer utils.ResetSystemFunctions()
 
-			_, err := agentServer.UpdatePgHbaConf(context.Background(), tc.request)
+			_, err := agentServer.UpdatePgHbaConfAndReload(context.Background(), tc.request)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -117,7 +117,7 @@ host	all	gpadmin	sdw2	trust`,
 		}
 		defer utils.ResetSystemFunctions()
 
-		_, err := agentServer.UpdatePgHbaConf(context.Background(), &idl.UpdatePgHbaConfRequest{})
+		_, err := agentServer.UpdatePgHbaConfAndReload(context.Background(), &idl.UpdatePgHbaConfRequest{})
 		if !errors.Is(err, expectedErr) {
 			t.Fatalf("got %#v, want %#v", err, expectedErr)
 		}
@@ -140,7 +140,7 @@ host	all	gpadmin	sdw2	trust`,
 		}
 		defer utils.ResetSystemFunctions()
 
-		_, err := agentServer.UpdatePgHbaConf(context.Background(), &idl.UpdatePgHbaConfRequest{})
+		_, err := agentServer.UpdatePgHbaConfAndReload(context.Background(), &idl.UpdatePgHbaConfRequest{})
 		var expectedErr *exec.ExitError
 		if !errors.As(err, &expectedErr) {
 			t.Errorf("got %T, want %T", err, expectedErr)

@@ -11,7 +11,7 @@ import (
 
 // UpdatePgHbaConf is agent RPC implementation which updates the segment pg_hba.conf
 // with the given address list and then reloads the segment with pg_ctl reload.
-func (s *Server) UpdatePgHbaConf(ctx context.Context, req *idl.UpdatePgHbaConfRequest) (*idl.UpdatePgHbaConfResponse, error) {
+func (s *Server) UpdatePgHbaConfAndReload(ctx context.Context, req *idl.UpdatePgHbaConfRequest) (*idl.UpdatePgHbaConfResponse, error) {
 	err := postgres.UpdateSegmentPgHbaConf(req.Pgdata, req.Addrs, req.Replication)
 	if err != nil {
 		return &idl.UpdatePgHbaConfResponse{}, fmt.Errorf("updating pg_hba.conf: %w", err)

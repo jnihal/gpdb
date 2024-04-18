@@ -38,12 +38,12 @@ func (s *Server) PgBasebackup(ctx context.Context, req *idl.PgBasebackupRequest)
 
 	// TODO Check if the directory is empty if ForceOverwrite is false
 
-	filename := filepath.Join(s.LogDir, fmt.Sprintf("pg_basebackup.%s.dbid%d.out", time.Now().Format("20060102_150405"), req.TargetDbid))
-	out, err := utils.RunGpCommandAndRedirectOutput(pgBasebackupCmd, s.GpHome, filename)
+	pgBasebackupLog := filepath.Join(s.LogDir, fmt.Sprintf("pg_basebackup.%s.dbid%d.out", time.Now().Format("20060102_150405"), req.TargetDbid))
+	out, err := utils.RunGpCommandAndRedirectOutput(pgBasebackupCmd, s.GpHome, pgBasebackupLog)
 	if err != nil {
-		return &idl.PgBasebackupResponse{}, fmt.Errorf("executing pg_basebackup: %s, logfile: %s, %w", out, filename, err)
+		return &idl.PgBasebackupResponse{}, fmt.Errorf("executing pg_basebackup: %s, logfile: %s, %w", out, pgBasebackupLog, err)
 	}
-	os.Remove(filename)
+	os.Remove(pgBasebackupLog)
 
 	return &idl.PgBasebackupResponse{}, nil
 }

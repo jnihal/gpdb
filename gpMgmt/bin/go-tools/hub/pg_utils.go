@@ -57,7 +57,7 @@ func (s *Server) UpdatePgHbaConfWithMirrorEntries(gparray *greenplum.GpArray, mi
 					addrs = append(primaryAddrs, mirrorAddrs...)
 				}
 
-				_, err = conn.AgentClient.UpdatePgHbaConf(context.Background(), &idl.UpdatePgHbaConfRequest{
+				_, err = conn.AgentClient.UpdatePgHbaConfAndReload(context.Background(), &idl.UpdatePgHbaConfRequest{
 					Pgdata:      pair.Primary.DataDir,
 					Addrs:       addrs,
 					Replication: true,
@@ -110,7 +110,10 @@ func (s *Server) ValidateDataChecksums(gparray *greenplum.GpArray) error {
 	var coordinatorValue string
 	request := func(conn *Connection) error {
 		if conn.Hostname == gparray.Coordinator.Hostname {
-			resp, err := conn.AgentClient.PgControlData(context.Background(), &idl.PgControlDataRequest{Pgdata: gparray.Coordinator.DataDir})
+			resp, err := conn.AgentClient.PgControlData(context.Background(), &idl.PgControlDataRequest{
+				Pgdata: gparray.Coordinator.DataDir,
+				Params: []string{"Data page checksum version"},
+			})
 			if err != nil {
 				return utils.FormatGrpcError(err)
 			}
@@ -142,7 +145,10 @@ func (s *Server) ValidateDataChecksums(gparray *greenplum.GpArray) error {
 			go func(seg *greenplum.Segment) {
 				defer wg.Done()
 
-				resp, err := conn.AgentClient.PgControlData(context.Background(), &idl.PgControlDataRequest{Pgdata: seg.DataDir})
+				resp, err := conn.AgentClient.PgControlData(context.Background(), &idl.PgControlDataRequest{
+					Pgdata: seg.DataDir,
+					Params: []string{"Data page checksum version"},
+				})
 				if err != nil {
 					errs <- utils.FormatGrpcError(err)
 					return

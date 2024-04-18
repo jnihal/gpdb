@@ -28,7 +28,7 @@ func (seg *Segment) IsQueryDispatcher() bool {
 	return seg.Content < 0
 }
 
-// IsQueryDispatcher indicates whether the segment is a QE i.e. primary or mirror
+// IsQueryExecutor indicates whether the segment is a QE i.e. primary or mirror
 func (seg *Segment) IsQueryExecutor() bool {
 	return seg.Content >= 0
 }
@@ -40,7 +40,7 @@ func (seg *Segment) IsActingCoordinator() bool {
 
 // IsActingStandby indicates whether the segment is currently performing the role of standby
 func (seg *Segment) IsActingStandby() bool {
-	return seg.IsQueryDispatcher() && seg.Role == constants.RolePrimary
+	return seg.IsQueryDispatcher() && seg.Role == constants.RoleMirror
 }
 
 // IsActingPrimary indicates whether the segment is currently performing the role of primary
@@ -207,9 +207,7 @@ func getSegmentPairsFromContentMap(contentMap map[int][]Segment) ([]SegmentPair,
 	for _, segs := range contentMap {
 		if segsPerContent == 0 {
 			segsPerContent = len(segs)
-		} else if segsPerContent == len(segs) {
-			continue
-		} else {
+		} else if segsPerContent != len(segs) {
 			return nil, fmt.Errorf("invalid configuration, number of segments per content is not consistent")
 		}
 	}

@@ -666,13 +666,13 @@ func createMockClients(t *testing.T, ctrl *gomock.Controller, errorType ErrorTyp
 	sdw1.EXPECT().PgBasebackup(gomock.Any(), gomock.Any()).Return(nil, errorType.PgBasebackup).AnyTimes()
 	sdw1.EXPECT().UpdatePgConf(gomock.Any(), gomock.Any()).Return(nil, errorType.UpdatePgConf).AnyTimes()
 	sdw1.EXPECT().StartSegment(gomock.Any(), gomock.Any()).Return(nil, errorType.StartSegment).AnyTimes()
-	sdw1.EXPECT().UpdatePgHbaConf(gomock.Any(), gomock.Any()).Return(nil, errorType.UpdatePgHbaConf).AnyTimes()
+	sdw1.EXPECT().UpdatePgHbaConfAndReload(gomock.Any(), gomock.Any()).Return(nil, errorType.UpdatePgHbaConf).AnyTimes()
 
 	sdw2.EXPECT().PgControlData(gomock.Any(), gomock.Any()).Return(&idl.PgControlDataResponse{Result: map[string]string{"Data page checksum version": "1"}}, nil).AnyTimes()
 	sdw2.EXPECT().PgBasebackup(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	sdw2.EXPECT().UpdatePgConf(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	sdw2.EXPECT().StartSegment(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-	sdw2.EXPECT().UpdatePgHbaConf(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	sdw2.EXPECT().UpdatePgHbaConfAndReload(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	return []*hub.Connection{
 		{AgentClient: cdw, Hostname: "cdw"},

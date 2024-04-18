@@ -44,7 +44,7 @@ func TestUpdatePgHbaConf(t *testing.T) {
 		}
 
 		sdw1 := mock_idl.NewMockAgentClient(ctrl)
-		sdw1.EXPECT().UpdatePgHbaConf(
+		sdw1.EXPECT().UpdatePgHbaConfAndReload(
 			gomock.Any(),
 			&idl.UpdatePgHbaConfRequest{
 				Pgdata:      primary1.DataDir,
@@ -60,7 +60,7 @@ func TestUpdatePgHbaConf(t *testing.T) {
 		}, nil).Times(2)
 
 		sdw2 := mock_idl.NewMockAgentClient(ctrl)
-		sdw2.EXPECT().UpdatePgHbaConf(
+		sdw2.EXPECT().UpdatePgHbaConfAndReload(
 			gomock.Any(),
 			&idl.UpdatePgHbaConfRequest{
 				Pgdata:      primary2.DataDir,
@@ -92,7 +92,7 @@ func TestUpdatePgHbaConf(t *testing.T) {
 		defer ctrl.Finish()
 
 		sdw1 := mock_idl.NewMockAgentClient(ctrl)
-		sdw1.EXPECT().UpdatePgHbaConf(
+		sdw1.EXPECT().UpdatePgHbaConfAndReload(
 			gomock.Any(),
 			&idl.UpdatePgHbaConfRequest{
 				Pgdata:      primary1.DataDir,
@@ -102,7 +102,7 @@ func TestUpdatePgHbaConf(t *testing.T) {
 		).Return(&idl.UpdatePgHbaConfResponse{}, nil)
 
 		sdw2 := mock_idl.NewMockAgentClient(ctrl)
-		sdw2.EXPECT().UpdatePgHbaConf(
+		sdw2.EXPECT().UpdatePgHbaConfAndReload(
 			gomock.Any(),
 			&idl.UpdatePgHbaConfRequest{
 				Pgdata:      primary2.DataDir,
@@ -152,7 +152,7 @@ func TestUpdatePgHbaConf(t *testing.T) {
 		}, nil).Times(2)
 
 		sdw2 := mock_idl.NewMockAgentClient(ctrl)
-		sdw2.EXPECT().UpdatePgHbaConf(
+		sdw2.EXPECT().UpdatePgHbaConfAndReload(
 			gomock.Any(),
 			gomock.Any(),
 		).Return(&idl.UpdatePgHbaConfResponse{}, nil)
@@ -191,13 +191,13 @@ func TestUpdatePgHbaConf(t *testing.T) {
 		expectedErr := errors.New("error")
 
 		sdw1 := mock_idl.NewMockAgentClient(ctrl)
-		sdw1.EXPECT().UpdatePgHbaConf(
+		sdw1.EXPECT().UpdatePgHbaConfAndReload(
 			gomock.Any(),
 			gomock.Any(),
 		).Return(&idl.UpdatePgHbaConfResponse{}, nil)
 
 		sdw2 := mock_idl.NewMockAgentClient(ctrl)
-		sdw2.EXPECT().UpdatePgHbaConf(
+		sdw2.EXPECT().UpdatePgHbaConfAndReload(
 			gomock.Any(),
 			gomock.Any(),
 		).Return(nil, expectedErr)

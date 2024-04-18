@@ -24,26 +24,27 @@ func (s *Server) AddMirrors(req *idl.AddMirrorsRequest, stream idl.Hub_AddMirror
 		return utils.LogAndReturnError(err)
 	}
 
-	// Check if the cluster already has mirrors, if yes error out
-	hubStream.StreamLogMsg("Checking if the cluster already has mirrors")
 	conn, err := greenplum.GetCoordinatorConn(req.CoordinatorDataDir, "", true)
 	if err != nil {
 		return utils.LogAndReturnError(err)
 	}
+	defer conn.Close()
 
 	gparray, err := greenplum.NewGpArrayFromCatalog(conn)
 	if err != nil {
 		return utils.LogAndReturnError(err)
 	}
 
-	if gparray.HasMirrors() {
-		return utils.LogAndReturnError(fmt.Errorf("cannot add mirrors, the cluster is already configured with mirrors"))
-	}
-
 	// Check if the number of primary and mirror segments are equal
 	hubStream.StreamLogMsg("Checking if the number of primary segments and the number of mirrors to add are equal")
 	if len(gparray.GetPrimarySegments()) != len(req.Mirrors) {
 		return utils.LogAndReturnError(fmt.Errorf("number of mirrors %d is not equal to the number of primaries %d present in the cluster", len(req.Mirrors), len(gparray.GetPrimarySegments())))
+	}
+
+	// Check if the cluster already has mirrors, if yes error out
+	hubStream.StreamLogMsg("Checking if the cluster already has mirrors")
+	if gparray.HasMirrors() {
+		return utils.LogAndReturnError(fmt.Errorf("cannot add mirrors, the cluster is already configured with mirrors"))
 	}
 
 	// Validate the heap_checksum value across all the segments
@@ -94,14 +95,7 @@ func (s *Server) AddMirrors(req *idl.AddMirrorsRequest, stream idl.Hub_AddMirror
 
 	// Run FTS
 	hubStream.StreamLogMsg("Triggering FTS probe")
-	conn.Close()
-	conn, err = greenplum.GetCoordinatorConn(req.CoordinatorDataDir, "")
-	if err != nil {
-		return utils.LogAndReturnError(err)
-	}
-	defer conn.Close()
-
-	_, err = conn.Exec("SELECT gp_request_fts_probe_scan()")
+	err = greenplum.TriggerFtsProbe(req.CoordinatorDataDir)
 	if err != nil {
 		return utils.LogAndReturnError(err)
 	}

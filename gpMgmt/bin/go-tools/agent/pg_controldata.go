@@ -22,7 +22,7 @@ func (s *Server) PgControlData(ctx context.Context, req *idl.PgControlDataReques
 		return &idl.PgControlDataResponse{}, fmt.Errorf("executing pg_controldata: %s, %w", out, err)
 	}
 
-	result := make(map[string]string)
+	pgControlDataOutput := make(map[string]string)
 	scanner := bufio.NewScanner(out)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -31,7 +31,17 @@ func (s *Server) PgControlData(ctx context.Context, req *idl.PgControlDataReques
 			continue
 		}
 
-		result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		pgControlDataOutput[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+	}
+
+	// return only the requested information
+	result := make(map[string]string)
+	for _, param := range req.Params {
+		if _, ok := pgControlDataOutput[param]; !ok {
+			return &idl.PgControlDataResponse{}, fmt.Errorf("did not find %q in pg_controldata output", param)
+		}
+
+		result[param] = pgControlDataOutput[param]
 	}
 
 	return &idl.PgControlDataResponse{Result: result}, nil

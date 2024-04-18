@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpdb/gp/constants"
 	"github.com/greenplum-db/gpdb/gp/utils"
 	"github.com/greenplum-db/gpdb/gp/utils/postgres"
@@ -57,6 +58,23 @@ func GetCoordinatorConn(datadir, dbname string, utility ...bool) (*dbconn.DBConn
 	}
 
 	return conn, nil
+}
+
+func TriggerFtsProbe(coordinatorDataDir string) error {
+	conn, err := GetCoordinatorConn(coordinatorDataDir, "")
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	query := "SELECT gp_request_fts_probe_scan()"
+	_, err = conn.Exec(query)
+	gplog.Debug("Executing query %q", query)
+	if err != nil {
+		return fmt.Errorf("triggering FTS probe: %w", err)
+	}
+
+	return nil
 }
 
 // used only for testing

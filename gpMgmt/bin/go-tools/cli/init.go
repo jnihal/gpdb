@@ -269,10 +269,8 @@ func ValidateInputConfigAndSetDefaultsFn(request *idl.MakeClusterRequest, cliHan
 		return fmt.Errorf("invalid segment array, primary segments are missing in some segment objects")
 	}
 
-	if numMirror != 0 {
-		if numPrimary != numMirror {
-			return fmt.Errorf("number of primary segments %d and number of mirror segments %d must be equal", numPrimary, numMirror)
-		}
+	if numMirror != 0 && numPrimary != numMirror {
+		return fmt.Errorf("number of primary segments %d and number of mirror segments %d must be equal", numPrimary, numMirror)
 	}
 
 	// validate details of coordinator

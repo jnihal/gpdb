@@ -12,7 +12,7 @@ service Agent {
     rpc StartSegment(StartSegmentRequest) returns (StartSegmentReply){}
     rpc ValidateHostEnv(ValidateHostEnvRequest) returns(ValidateHostEnvReply) {}
     rpc GetInterfaceAddrs(GetInterfaceAddrsRequest) returns(GetInterfaceAddrsResponse) {}
-    rpc UpdatePgHbaConf(UpdatePgHbaConfRequest) returns (UpdatePgHbaConfResponse) {}
+    rpc UpdatePgHbaConfAndReload(UpdatePgHbaConfRequest) returns (UpdatePgHbaConfResponse) {}
     rpc UpdatePgConf(UpdatePgConfRequest) returns (UpdatePgConfRespoonse) {}
     rpc PgBasebackup(PgBasebackupRequest) returns (PgBasebackupResponse) {}
     rpc PgControlData(PgControlDataRequest) returns (PgControlDataResponse) {}
@@ -102,6 +102,7 @@ message PgBasebackupResponse {}
 
 message PgControlDataRequest {
     string pgdata = 1;
+    repeated string params = 2;
 }
 
 message PgControlDataResponse {

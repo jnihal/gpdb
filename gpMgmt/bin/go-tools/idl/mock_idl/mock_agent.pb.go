@@ -196,24 +196,24 @@ func (mr *MockAgentClientMockRecorder) UpdatePgConf(ctx, in interface{}, opts ..
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePgConf", reflect.TypeOf((*MockAgentClient)(nil).UpdatePgConf), varargs...)
 }
 
-// UpdatePgHbaConf mocks base method.
-func (m *MockAgentClient) UpdatePgHbaConf(ctx context.Context, in *idl.UpdatePgHbaConfRequest, opts ...grpc.CallOption) (*idl.UpdatePgHbaConfResponse, error) {
+// UpdatePgHbaConfAndReload mocks base method.
+func (m *MockAgentClient) UpdatePgHbaConfAndReload(ctx context.Context, in *idl.UpdatePgHbaConfRequest, opts ...grpc.CallOption) (*idl.UpdatePgHbaConfResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "UpdatePgHbaConf", varargs...)
+	ret := m.ctrl.Call(m, "UpdatePgHbaConfAndReload", varargs...)
 	ret0, _ := ret[0].(*idl.UpdatePgHbaConfResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// UpdatePgHbaConf indicates an expected call of UpdatePgHbaConf.
-func (mr *MockAgentClientMockRecorder) UpdatePgHbaConf(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// UpdatePgHbaConfAndReload indicates an expected call of UpdatePgHbaConfAndReload.
+func (mr *MockAgentClientMockRecorder) UpdatePgHbaConfAndReload(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePgHbaConf", reflect.TypeOf((*MockAgentClient)(nil).UpdatePgHbaConf), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePgHbaConfAndReload", reflect.TypeOf((*MockAgentClient)(nil).UpdatePgHbaConfAndReload), varargs...)
 }
 
 // ValidateHostEnv mocks base method.
@@ -379,19 +379,19 @@ func (mr *MockAgentServerMockRecorder) UpdatePgConf(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePgConf", reflect.TypeOf((*MockAgentServer)(nil).UpdatePgConf), arg0, arg1)
 }
 
-// UpdatePgHbaConf mocks base method.
-func (m *MockAgentServer) UpdatePgHbaConf(arg0 context.Context, arg1 *idl.UpdatePgHbaConfRequest) (*idl.UpdatePgHbaConfResponse, error) {
+// UpdatePgHbaConfAndReload mocks base method.
+func (m *MockAgentServer) UpdatePgHbaConfAndReload(arg0 context.Context, arg1 *idl.UpdatePgHbaConfRequest) (*idl.UpdatePgHbaConfResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdatePgHbaConf", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdatePgHbaConfAndReload", arg0, arg1)
 	ret0, _ := ret[0].(*idl.UpdatePgHbaConfResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// UpdatePgHbaConf indicates an expected call of UpdatePgHbaConf.
-func (mr *MockAgentServerMockRecorder) UpdatePgHbaConf(arg0, arg1 interface{}) *gomock.Call {
+// UpdatePgHbaConfAndReload indicates an expected call of UpdatePgHbaConfAndReload.
+func (mr *MockAgentServerMockRecorder) UpdatePgHbaConfAndReload(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePgHbaConf", reflect.TypeOf((*MockAgentServer)(nil).UpdatePgHbaConf), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePgHbaConfAndReload", reflect.TypeOf((*MockAgentServer)(nil).UpdatePgHbaConfAndReload), arg0, arg1)
 }
 
 // ValidateHostEnv mocks base method.
