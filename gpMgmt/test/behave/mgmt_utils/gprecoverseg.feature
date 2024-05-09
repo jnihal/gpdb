@@ -16,7 +16,7 @@ Feature: gprecoverseg tests
        Then gprecoverseg should return a return code of 0
         And verify that mirror on content 0,1,2 is up
         And gprecoverseg should print "Synchronization mode.* = Differential" to stdout 2 times
-        And gprecoverseg should print "Synchronization mode.* = Full" to stdout 1 times
+        And gprecoverseg should print "Synchronization mode.* = Fullsssdsdsdsd" to stdout 1 times
         And all the segments are running
         And the segments are synchronized
 
