@@ -1,9 +1,7 @@
 all: build
 
 .DEFAULT_GOAL := all
-MODULE_NAME=gp
-SUBDIRS = gpservice gpctl
-
+MODULE_NAME=gpctl
 
 
 LINUX_ENV := env GOOS=linux GOARCH=amd64
@@ -14,9 +12,11 @@ MAC_ENV := env GOOS=darwin GOARCH=amd64
 TEST_PACKAGES := ./...
 unit: TEST_PACKAGES := $(shell go list ./... | grep -v ./test/integration)
 unit:
-		$(MAKE) -C gpservice/ unit; $(MAKE) -C gpctl/ unit;
-
-
+	go test -v -count=1 $(TEST_PACKAGES) --cover -coverprofile=/tmp/coverage.out;
+	@cat /tmp/coverage.out | \
+	awk 'BEGIN {cov=0; stat=0;} \
+	$$3!="" { cov+=($$3==1?$$2:0); stat+=$$2; } \
+    END {printf("\n\ntotal coverage: %.2f%% of statements\n", (cov/stat)*100);}'
 
 # You can override this from the command line to run tests for specific utility.
 # For example, to run start related tests: make integration UTILITY=start
@@ -57,49 +57,44 @@ depend-dev:
 
 .PHONY: lint
 lint:
-	$(MAKE) -C gpservice/ lint; $(MAKE) -C gpctl/ lint;
+	golangci-lint run
 
 BUILD_ENV = $($(OS)_ENV)
 
 .PHONY: build build_linux build_mac
 build:
-	$(MAKE) -C gpservice/ build; $(MAKE) -C gpctl/ build;
+	$(BUILD_ENV) go build -o gpctl $(BUILD_FLAGS) github.com/greenplum-db/gpdb/gpctl/cmd/gpctl
 
 build_linux: OS := LINUX
 build_mac: OS := MAC
 build_linux build_mac: build
 
-proto:
-	cd gpservice; $(MAKE) proto
-
-cert:
-	./generate_test_tls_certificates.sh `hostname`
 
 BUILD_FLAGS = -gcflags="all=-N -l"
 
-install:
-	$(MAKE) -C gpservice/ install; $(MAKE) -C gpctl/ install;
+install: check-gphome-set
+	GOBIN=$(GPHOME)/bin go install $(BUILD_FLAGS) github.com/greenplum-db/gpdb/gpctl/cmd/gpctl
 
 # goimports supports a superset of the formatting rules gofmt supports, but
 # gofmt allows custom formatting rules so we include both for now
 format:
-	$(MAKE) -C gpservice/ format; $(MAKE) -C gpctl/ format;
+	goimports -l -w cli/
+	gofmt -l -w cli/
 
 # You can override these from the command line.
 GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 GIT_REMOTE ?= $(shell git ls-remote --get-url)
 PIPELINE_NAME ?= gpdb-dev-$(shell git rev-parse --abbrev-ref HEAD | tr '/' '-')
-pipeline:
-	fly -t dev set-pipeline -p $(PIPELINE_NAME) \
-		-c ci/pipelines/pipeline.yml \
-		-l ../../../concourse/vars/common_prod.yml \
-		-l ../../../concourse/vars/common_dev.yml \
-		-v gpdb-git-remote=$(GIT_REMOTE) \
-		-v gpdb-git-branch=$(GIT_BRANCH) \
-		-v pipeline-name=$(PIPELINE_NAME)
 
 clean:
-	$(MAKE) -C gpservice/ clean; $(MAKE) -C gpctl/ clean;
+	rm -f gpctl
+	rm -rf /tmp/go-build*
+	rm -rf /tmp/gexec_artifacts*
 
-uninstall:
-	rm -rf $(GPHOME)/bin/gpctl; rm -rf $(GPHOME)/bin/gpservices
+uninstall: check-gphome-set
+	rm -rf $(GPHOME)/bin/gpctl
+
+check-gphome-set:
+ifndef GPHOME
+	$(error Environment variable GPHOME is not set, please set GPHOME or source greenplum_path.sh)
+endif
