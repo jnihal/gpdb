@@ -103,9 +103,6 @@ func (p *MockPlatform) ReadFile(configFilePath string) (config *gpservice_config
 func (p *MockPlatform) SetServiceFileContent(content string) {
 	p.ServiceFileContent = content
 }
-func (p *MockPlatform) GetPlatformOS() string {
-	return p.OS
-}
 
 type MockCredentials struct {
 	TlsConnection credentials.TransportCredentials

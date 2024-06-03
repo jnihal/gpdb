@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/greenplum-db/gpdb/gpservice/internal/cli"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
 )
 
 func TestAgentCmd(t *testing.T) {

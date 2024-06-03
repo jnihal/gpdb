@@ -18,10 +18,10 @@ import (
 	"github.com/greenplum-db/gpdb/gpservice/idl"
 	"github.com/greenplum-db/gpdb/gpservice/idl/mock_idl"
 	"github.com/greenplum-db/gpdb/gpservice/internal/hub"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils/exectest"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/greenplum"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils/exectest"
 )
 
 func init() {
@@ -30,7 +30,7 @@ func init() {
 
 func TestCreateSegments(t *testing.T) {
 	testhelper.SetupTestLogger()
-	hubServer := hub.New(testutils.CreateDummyServiceConfig(t), nil)
+	hubServer := hub.New(testutils.CreateDummyServiceConfig(t))
 
 	segs := []greenplum.Segment{
 		{
@@ -296,7 +296,7 @@ func TestCreateSegments(t *testing.T) {
 
 func TestStopCoordinator(t *testing.T) {
 	testhelper.SetupTestLogger()
-	hubServer := hub.New(testutils.CreateDummyServiceConfig(t), nil)
+	hubServer := hub.New(testutils.CreateDummyServiceConfig(t))
 
 	t.Run("successfully stops the coordinator segment", func(t *testing.T) {
 		var pgCtlCalled bool
@@ -386,7 +386,7 @@ func TestStopCoordinator(t *testing.T) {
 
 func TestValidateEnvironment(t *testing.T) {
 	testhelper.SetupTestLogger()
-	hubServer := hub.New(testutils.CreateDummyServiceConfig(t), nil)
+	hubServer := hub.New(testutils.CreateDummyServiceConfig(t))
 
 	segs := []greenplum.Segment{
 		{

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/greenplum-db/gpdb/gpservice/constants"
-
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
 )
 

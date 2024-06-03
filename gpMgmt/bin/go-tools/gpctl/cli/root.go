@@ -20,6 +20,7 @@ var (
 func RootCommand() *cobra.Command {
 	root := &cobra.Command{
 		Use: "gpctl",
+		Long: "gpctl is a utility to manage a Greenplum Database System",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) (err error) {
 			conf, err = gpservice_config.Read(configFilepath)
 			if err != nil {
@@ -30,7 +31,7 @@ func RootCommand() *cobra.Command {
 			return
 		}}
 
-	root.PersistentFlags().StringVar(&configFilepath, "config-file", filepath.Join(os.Getenv("GPHOME"), constants.ConfigFileName), `Path to gp configuration file`)
+	root.PersistentFlags().StringVar(&configFilepath, "service-config-file", filepath.Join(os.Getenv("GPHOME"), constants.ConfigFileName), `Path to gpservice configuration file`)
 	root.PersistentFlags().BoolVar(&verbose, "verbose", false, `Provide verbose output`)
 
 	root.CompletionOptions.DisableDefaultCmd = true

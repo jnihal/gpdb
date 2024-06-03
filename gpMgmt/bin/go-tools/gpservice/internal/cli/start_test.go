@@ -11,9 +11,9 @@ import (
 	"github.com/greenplum-db/gpdb/gpservice/idl"
 	"github.com/greenplum-db/gpdb/gpservice/idl/mock_idl"
 	"github.com/greenplum-db/gpdb/gpservice/internal/cli"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils/exectest"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils/exectest"
 )
 
 func TestStartCmd(t *testing.T) {

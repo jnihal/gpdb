@@ -19,9 +19,9 @@ import (
 	"github.com/greenplum-db/gpdb/gpservice/idl"
 	"github.com/greenplum-db/gpdb/gpservice/idl/mock_idl"
 	"github.com/greenplum-db/gpdb/gpservice/internal/hub"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/greenplum"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
 )
 
 var (
@@ -55,7 +55,7 @@ func initialize(t *testing.T) {
 		},
 	}
 
-	hubServer = hub.New(testutils.CreateDummyServiceConfig(t), nil)
+	hubServer = hub.New(testutils.CreateDummyServiceConfig(t))
 }
 
 func TestCreateMirrorSegments(t *testing.T) {
@@ -403,11 +403,6 @@ func TestAddMirrors(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		hub.SetEnsureConnectionsAreReady(func(conns []*hub.Connection) error {
-			return nil
-		})
-		defer hub.ResetEnsureConnectionsAreReady()
-
 		utils.System.Stat = func(name string) (os.FileInfo, error) {
 			return nil, nil
 		}
@@ -471,11 +466,6 @@ func TestAddMirrors(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		hub.SetEnsureConnectionsAreReady(func(conns []*hub.Connection) error {
-			return nil
-		})
-		defer hub.ResetEnsureConnectionsAreReady()
-
 		utils.System.Open = func(name string) (*os.File, error) {
 			reader, writer, _ := os.Pipe()
 			defer writer.Close()
@@ -513,11 +503,6 @@ func TestAddMirrors(t *testing.T) {
 	t.Run("when number of mirror segments are not equal to the primary segments", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		hub.SetEnsureConnectionsAreReady(func(conns []*hub.Connection) error {
-			return nil
-		})
-		defer hub.ResetEnsureConnectionsAreReady()
 
 		utils.System.Open = func(name string) (*os.File, error) {
 			reader, writer, _ := os.Pipe()
@@ -572,11 +557,6 @@ func TestAddMirrors(t *testing.T) {
 		t.Run("returns appropriate error during different RPC calls", func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-
-			hub.SetEnsureConnectionsAreReady(func(conns []*hub.Connection) error {
-				return nil
-			})
-			defer hub.ResetEnsureConnectionsAreReady()
 
 			utils.System.Stat = func(name string) (os.FileInfo, error) {
 				return nil, nil

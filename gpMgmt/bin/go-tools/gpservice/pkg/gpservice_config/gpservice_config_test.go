@@ -13,9 +13,9 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpdb/gpservice/constants"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils/exectest"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/gpservice_config"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils/exectest"
 )
 
 // Enable exectest.NewCommand mocking.

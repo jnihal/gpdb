@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
 	"github.com/jmoiron/sqlx"
+
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
+	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
 )
 
 func TestExecOnDatabase(t *testing.T) {

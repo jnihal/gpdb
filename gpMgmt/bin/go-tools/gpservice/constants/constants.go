@@ -8,14 +8,14 @@ const (
 	DefaultAgentPort        = 8000
 	DefaultServiceName      = "gpservice"
 	ConfigFileName          = "gpservice.conf"
+	PlatformDarwin          = "darwin"
+	PlatformLinux           = "linux"
 )
 
 const (
 	ShellPath               = "/bin/bash"
 	GpSSH                   = "gpssh"
 	MaxRetries              = 10
-	PlatformDarwin          = "darwin"
-	PlatformLinux           = "linux"
 	DefaultQdMaxConnect     = 150
 	QeConnectFactor         = 3
 	DefaultBuffer           = "128000kB"

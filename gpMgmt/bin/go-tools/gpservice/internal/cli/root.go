@@ -43,7 +43,7 @@ func RootCommand() *cobra.Command {
 
 	root.AddCommand(
 		AgentCmd(),
-		configureCmd(),
+		InitCmd(),
 		HubCmd(),
 		StartCmd(),
 		StatusCmd(),

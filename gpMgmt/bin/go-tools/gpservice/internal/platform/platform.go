@@ -1,4 +1,4 @@
-package utils
+package platform
 
 import (
 	"errors"
@@ -10,20 +10,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/greenplum-db/gpdb/gpservice/constants"
-
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpdb/gpservice/constants"
 	"github.com/greenplum-db/gpdb/gpservice/idl"
-	"github.com/greenplum-db/gpdb/gpservice/testutils/exectest"
+	"github.com/greenplum-db/gpdb/gpservice/pkg/greenplum"
+	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
 )
 
 var (
 	platform             Platform
-	execCommand          = exec.Command
-	writeServiceFileFunc = WriteServiceFile
-	GpsyncCommand        = exec.Command
-	LoadServiceCommand   = exec.Command
-	UnloadServiceCommand = exec.Command
 )
 
 type GpPlatform struct {
@@ -72,7 +67,6 @@ type Platform interface {
 	GetServiceStatusMessage(serviceName string) (string, error)
 	ParseServiceStatusMessage(message string) idl.ServiceStatus
 	EnableUserLingering(hostnames []string, gpHome string, serviceUser string) error
-	GetPlatformOS() string
 }
 
 func GetPlatform() Platform {
@@ -90,28 +84,21 @@ func GetPlatform() Platform {
 }
 
 func (p GpPlatform) CreateServiceDir(hostnames []string, serviceDir string, gpHome string) error {
-	hostList := make([]string, 0)
-	for _, host := range hostnames {
-		hostList = append(hostList, "-h", host)
+	gpsshCmd := &greenplum.GpSSH{
+		Hostnames: hostnames,
+		Command: fmt.Sprintf("mkdir -p %s", serviceDir),
 	}
-
-	// Create service directory if it does not exist
-	args := append(hostList, "mkdir", "-p", serviceDir)
-	utility := filepath.Join(gpHome, "bin", constants.GpSSH)
-	err := execCommand(utility, args...).Run()
+	out, err := utils.RunGpSourcedCommand(gpsshCmd, gpHome)
 	if err != nil {
-		return fmt.Errorf("could not create service directory %s on hosts: %w", serviceDir, err)
+		return fmt.Errorf("could not create service directory %s on hosts: %s, %w", serviceDir, out, err)
 	}
 
 	gplog.Info("Created service file directory %s on all hosts", serviceDir)
 	return nil
 }
-func (p GpPlatform) GetPlatformOS() string {
-	return p.OS
-}
 
 func WriteServiceFile(filename string, contents string) error {
-	handle, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	handle, err := utils.System.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("could not create service file %s: %w\n", filename, err)
 	}
@@ -182,7 +169,7 @@ WantedBy=default.target
 }
 
 func (p GpPlatform) GetDefaultServiceDir() string {
-	user, _ := System.CurrentUser()
+	user, _ := utils.System.CurrentUser()
 
 	if p.OS == constants.PlatformDarwin {
 		return filepath.Join("/Users", user.Username, "Library", "LaunchAgents")
@@ -194,7 +181,7 @@ func (p GpPlatform) GetDefaultServiceDir() string {
 func (p GpPlatform) CreateAndInstallHubServiceFile(gpHome string, serviceDir string, serviceName string) error {
 	hubServiceContents := p.GenerateServiceFileContents("hub", gpHome, serviceName)
 	hubServiceFilePath := filepath.Join(serviceDir, fmt.Sprintf("%s_hub.%s", serviceName, p.ServiceExt))
-	err := writeServiceFileFunc(hubServiceFilePath, hubServiceContents)
+	err := WriteServiceFile(hubServiceFilePath, hubServiceContents)
 	if err != nil {
 		return err
 	}
@@ -211,48 +198,58 @@ func (p GpPlatform) CreateAndInstallHubServiceFile(gpHome string, serviceDir str
 func (p GpPlatform) ReloadHubService(servicePath string) error {
 	if p.OS == constants.PlatformDarwin {
 		// launchctl does not have a single reload command. Hence unload and load the file to update the configuration.
-		err := UnloadServiceCommand(p.ServiceCmd, "unload", servicePath).Run()
+		out, err := utils.System.ExecCommand(p.ServiceCmd, "unload", servicePath).CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("could not unload hub service file %s: %w", servicePath, err)
+			return fmt.Errorf("could not unload hub service file %s: %s, %w", servicePath, out, err)
 		}
 
-		err = LoadServiceCommand(p.ServiceCmd, "load", servicePath).Run()
+		out, err = utils.System.ExecCommand(p.ServiceCmd, "load", servicePath).CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("could not load hub service file %s: %w", servicePath, err)
+			return fmt.Errorf("could not load hub service file %s: %s, %w", servicePath, out, err)
 		}
 
 		return nil
 	}
 
-	err := execCommand(p.ServiceCmd, p.UserArg, "daemon-reload").Run()
+	out, err := utils.System.ExecCommand(p.ServiceCmd, p.UserArg, "daemon-reload").CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("could not reload hub service file %s: %w", servicePath, err)
+		return fmt.Errorf("could not reload hub service file %s: %s, %w", servicePath, out, err)
 	}
 
 	return nil
 }
 
-func (p GpPlatform) ReloadAgentService(gpHome string, hostList []string, servicePath string) error {
-	args := append(hostList, p.ServiceCmd)
-
-	if p.OS == constants.PlatformDarwin { // launchctl reloads a specific service, not all of them
+func (p GpPlatform) ReloadAgentService(gpHome string, hostnames []string, servicePath string) error {
+	if p.OS == constants.PlatformDarwin {
 		// launchctl does not have a single reload command. Hence unload and load the file to update the configuration.
-		err := UnloadServiceCommand(fmt.Sprintf("%s/bin/gpssh", gpHome), append(args, "unload", servicePath)...).Run()
+		gpsshCmd := &greenplum.GpSSH{
+			Hostnames: hostnames,
+			Command: fmt.Sprintf("%s unload %s", p.ServiceCmd, servicePath),
+		}
+		out, err := utils.RunGpSourcedCommand(gpsshCmd, gpHome)
 		if err != nil {
-			return fmt.Errorf("could not unload agent service file %s on segment hosts: %w", servicePath, err)
+			return fmt.Errorf("could not unload agent service file %s on segment hosts: %s, %w", servicePath, out, err)
 		}
 
-		err = LoadServiceCommand(fmt.Sprintf("%s/bin/gpssh", gpHome), append(args, "load", servicePath)...).Run()
+		gpsshCmd = &greenplum.GpSSH{
+			Hostnames: hostnames,
+			Command: fmt.Sprintf("%s load %s", p.ServiceCmd, servicePath),
+		}
+		out, err = utils.RunGpSourcedCommand(gpsshCmd, gpHome)
 		if err != nil {
-			return fmt.Errorf("could not load agent service file %s on segment hosts: %w", servicePath, err)
+			return fmt.Errorf("could not load agent service file %s on segment hosts: %s, %w", servicePath, out, err)
 		}
 
 		return nil
 	}
 
-	err := execCommand(fmt.Sprintf("%s/bin/gpssh", gpHome), append(args, p.UserArg, "daemon-reload")...).Run()
+	gpsshCmd := &greenplum.GpSSH{
+		Hostnames: hostnames,
+		Command: fmt.Sprintf("%s daemon-reload", p.UserArg),
+	}
+	out, err := utils.RunGpSourcedCommand(gpsshCmd, gpHome)
 	if err != nil {
-		return fmt.Errorf("could not reload agent service file %s on segment hosts: %w", servicePath, err)
+		return fmt.Errorf("could not reload agent service file %s on segment hosts: %s, %w", servicePath, out, err)
 	}
 
 	return nil
@@ -261,26 +258,24 @@ func (p GpPlatform) ReloadAgentService(gpHome string, hostList []string, service
 func (p GpPlatform) CreateAndInstallAgentServiceFile(hostnames []string, gpHome string, serviceDir string, serviceName string) error {
 	agentServiceContents := p.GenerateServiceFileContents("agent", gpHome, serviceName)
 	localAgentServiceFilePath := fmt.Sprintf("./%s_agent.%s", serviceName, p.ServiceExt)
-	err := writeServiceFileFunc(localAgentServiceFilePath, agentServiceContents)
+	err := WriteServiceFile(localAgentServiceFilePath, agentServiceContents)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(localAgentServiceFilePath)
 
 	remoteAgentServiceFilePath := fmt.Sprintf("%s/%s_agent.%s", serviceDir, serviceName, p.ServiceExt)
-	hostList := make([]string, 0)
-	for _, host := range hostnames {
-		hostList = append(hostList, "-h", host)
+	gsyncCmd := &greenplum.GpSync{
+		Hostnames: hostnames,
+		Source: localAgentServiceFilePath,
+		Destination: remoteAgentServiceFilePath,
 	}
-
-	// Copy the file to segment host service directories
-	args := append(hostList, localAgentServiceFilePath, fmt.Sprintf("=:%s", remoteAgentServiceFilePath))
-	err = GpsyncCommand(fmt.Sprintf("%s/bin/gpsync", gpHome), args...).Run()
+	out, err := utils.RunGpSourcedCommand(gsyncCmd, gpHome)
 	if err != nil {
-		return fmt.Errorf("could not copy agent service files to segment hosts: %w", err)
+		return fmt.Errorf("could not copy agent service file to segment hosts: %s, %w", out, err)
 	}
 
-	err = p.ReloadAgentService(gpHome, hostList, remoteAgentServiceFilePath)
+	err = p.ReloadAgentService(gpHome, hostnames, remoteAgentServiceFilePath)
 	if err != nil {
 		return err
 	}
@@ -296,7 +291,7 @@ func (p GpPlatform) GetStartHubCommand(serviceName string) *exec.Cmd {
 		args = args[1:]
 	}
 
-	return System.ExecCommand(p.ServiceCmd, args...)
+	return utils.System.ExecCommand(p.ServiceCmd, args...)
 }
 
 func (p GpPlatform) GetStartAgentCommandString(serviceName string) []string {
@@ -310,7 +305,7 @@ func (p GpPlatform) GetServiceStatusMessage(serviceName string) (string, error) 
 		args = args[1:]
 	}
 
-	output, err := execCommand(p.ServiceCmd, args...).Output()
+	output, err := utils.System.ExecCommand(p.ServiceCmd, args...).Output()
 	if err != nil {
 		if err.Error() != "exit status 3" { // 3 = service is stopped
 			return "", err
@@ -376,33 +371,15 @@ func (p GpPlatform) EnableUserLingering(hostnames []string, gpHome string, servi
 	if p.OS != "linux" {
 		return nil
 	}
-
-	hostList := make([]string, 0)
-	for _, host := range hostnames {
-		hostList = append(hostList, "-h", host)
+	
+	gpsshCmd := &greenplum.GpSSH{
+		Hostnames: hostnames,
+		Command: fmt.Sprintf("loginctl enable-linger %s", serviceUser),
 	}
-
-	remoteCmd := append(hostList, "loginctl enable-linger ", serviceUser)
-	err := execCommand(fmt.Sprintf("%s/bin/gpssh", gpHome), remoteCmd...).Run()
+	out, err := utils.RunGpSourcedCommand(gpsshCmd, gpHome)
 	if err != nil {
-		return fmt.Errorf("could not enable user lingering: %w", err)
+		return fmt.Errorf("could not enable user lingering: %s, %w", out, err)
 	}
 
 	return nil
-}
-
-func SetExecCommand(command exectest.Command) {
-	execCommand = command
-}
-
-func ResetExecCommand() {
-	execCommand = exec.Command
-}
-
-func SetWriteServiceFileFunc(writeFunc func(filename string, contents string) error) {
-	writeServiceFileFunc = writeFunc
-}
-
-func ResetWriteServiceFileFunc() {
-	writeServiceFileFunc = WriteServiceFile
 }

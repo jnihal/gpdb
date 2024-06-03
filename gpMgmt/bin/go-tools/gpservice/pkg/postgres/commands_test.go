@@ -8,10 +8,10 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpdb/gpservice/constants"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils/exectest"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/postgres"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils/exectest"
 )
 
 func init() {

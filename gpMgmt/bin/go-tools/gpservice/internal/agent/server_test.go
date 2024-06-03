@@ -13,7 +13,7 @@ import (
 	"github.com/greenplum-db/gpdb/gpservice/constants"
 	"github.com/greenplum-db/gpdb/gpservice/idl"
 	agent "github.com/greenplum-db/gpdb/gpservice/internal/agent"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
 )
 
 func TestStartServer(t *testing.T) {

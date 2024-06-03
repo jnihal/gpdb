@@ -83,30 +83,17 @@ var (
 	HubClient      idl.HubClient
 )
 
-// initCmd adds support for command "gp init <config-file> [--force]
 func initCmd() *cobra.Command {
 	initCmd := &cobra.Command{
-		Use:   "init",
-		Short: "Initialize cluster, segments",
+		Use:   "init <config-file>",
+		Short: "Initializes a Greenplum Database system by using configuration parameters specified in a configuration file",
 		RunE:  RunInitClusterCmd,
 	}
-	initCmd.PersistentFlags().BoolVar(&cliForceFlag, "force", false, "Create cluster forcefully by overwriting existing directories")
-	initCmd.AddCommand(initClusterCmd())
+
+	initCmd.Flags().BoolVar(&cliForceFlag, "force", false, "Create the database cluster by overwriting the data directory paths if they are not empty")
+	initCmd.Flags().BoolVar(&cliCleanFlag, "clean", false, "Rollback the changes made due to a failed initialization operation")
+
 	return initCmd
-}
-
-// initClusterCmd adds support for command "gp init cluster [--clean]
-func initClusterCmd() *cobra.Command {
-	initClusterCmd := &cobra.Command{
-		Use:   "cluster",
-		Short: "Initialize the cluster",
-		RunE:  RunInitClusterCmd,
-	}
-
-	initClusterCmd.PersistentFlags().BoolVar(&cliCleanFlag, "clean", false,
-		`cleans data directories created during GPDB cluster creation. To be called only upon failure`)
-
-	return initClusterCmd
 }
 
 // RunInitClusterCmd driving function gets called from cobra on gp init cluster command

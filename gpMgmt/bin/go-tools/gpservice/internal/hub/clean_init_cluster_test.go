@@ -15,8 +15,8 @@ import (
 	"github.com/greenplum-db/gpdb/gpservice/idl"
 	"github.com/greenplum-db/gpdb/gpservice/idl/mock_idl"
 	"github.com/greenplum-db/gpdb/gpservice/internal/hub"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
 )
 
 func CreateCleanupFile(dirPath string) error {
@@ -40,7 +40,7 @@ func CreateCleanupFile(dirPath string) error {
 
 func TestCleanInitCluster(t *testing.T) {
 	testhelper.SetupTestLogger()
-	hubServer := hub.New(testutils.CreateDummyServiceConfig(t), nil)
+	hubServer := hub.New(testutils.CreateDummyServiceConfig(t))
 
 	t.Run("entries file does not exist", func(t *testing.T) {
 

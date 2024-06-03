@@ -12,8 +12,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gpdb/gpservice/constants"
 	"github.com/greenplum-db/gpdb/gpservice/idl"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/greenplum"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
 )
 
 var (

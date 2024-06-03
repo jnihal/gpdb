@@ -44,12 +44,12 @@ func StatusCmd() *cobra.Command {
 }
 
 func getHubStatus(conf *gpservice_config.Config) ([]*idl.ServiceStatus, error) {
-	message, err := Platform.GetServiceStatusMessage(fmt.Sprintf("%s_hub", conf.ServiceName))
+	message, err := platform.GetServiceStatusMessage(fmt.Sprintf("%s_hub", conf.ServiceName))
 	if err != nil {
 		return nil, err
 	}
 
-	status := Platform.ParseServiceStatusMessage(message)
+	status := platform.ParseServiceStatusMessage(message)
 	status.Host, _ = utils.System.GetHostName()
 	status.Role = "Hub"
 

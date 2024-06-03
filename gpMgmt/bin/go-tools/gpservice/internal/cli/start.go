@@ -38,7 +38,7 @@ func StartCmd() *cobra.Command {
 }
 
 func startHubService(conf *gpservice_config.Config) error {
-	out, err := Platform.GetStartHubCommand(conf.ServiceName).CombinedOutput()
+	out, err := platform.GetStartHubCommand(conf.ServiceName).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to start hub service: %s, %w", out, err)
 	}

@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/postgres"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
 )
 
 func TestUpdatePostgresqlConf(t *testing.T) {

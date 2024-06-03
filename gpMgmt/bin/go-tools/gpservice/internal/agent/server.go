@@ -7,13 +7,14 @@ import (
 	"sync"
 
 	"github.com/greenplum-db/gpdb/gpservice/idl"
+	. "github.com/greenplum-db/gpdb/gpservice/internal/platform"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 var (
-	platform = utils.GetPlatform()
+	platform = GetPlatform()
 )
 
 type Config struct {
@@ -111,10 +112,10 @@ func (s *Server) GetStatus() (*idl.ServiceStatus, error) {
 	return &status, nil
 }
 
-func SetPlatform(p utils.Platform) {
+func SetPlatform(p Platform) {
 	platform = p
 }
 
 func ResetPlatform() {
-	platform = utils.GetPlatform()
+	platform = GetPlatform()
 }

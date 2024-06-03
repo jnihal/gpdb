@@ -11,7 +11,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpdb/gpctl/cli"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
 )
 
 func TestHandleSignal(t *testing.T) {

@@ -3,6 +3,8 @@ package hub
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
 	"sync"
 
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
@@ -16,38 +18,24 @@ type RpcReply struct {
 	hostname, address string
 }
 
-/*
-ConnectHostList connects to given hostlist on the agent port, returns map of agent-address and connection
-if fails, returns error.
-*/
+// ConnectHostList connects to given hostlist on the agent port, returns map of agent-address and connection
+// if fails, returns error.
 func (s *Server) ConnectHostList(hostList []string) (map[string]idl.AgentClient, error) {
 	addressConnectionMap := make(map[string]idl.AgentClient)
-	ctx, cancelFunc := context.WithTimeout(context.Background(), DialTimeout)
-	defer cancelFunc()
 
 	credentials, err := s.Credentials.LoadClientCredentials()
 	if err != nil {
-		cancelFunc()
 		return nil, err
 	}
 
 	for _, address := range hostList {
-		// Dial to the address
 		if _, ok := addressConnectionMap[address]; !ok {
-			remoteAddress := fmt.Sprintf("%s:%d", address, s.AgentPort)
-			opts := []grpc.DialOption{
-				grpc.WithBlock(),
-				grpc.WithTransportCredentials(credentials),
-				grpc.WithReturnConnectionError(),
-			}
-			if s.grpcDialer != nil {
-				opts = append(opts, grpc.WithContextDialer(s.grpcDialer))
-			}
-			conn, err := grpc.DialContext(ctx, remoteAddress, opts...)
+			address := net.JoinHostPort(address, strconv.Itoa(s.AgentPort))
+			conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(credentials))
 			if err != nil {
-				cancelFunc()
 				return nil, fmt.Errorf("could not connect to agent on host %s: %w", address, err)
 			}
+
 			addressConnectionMap[address] = idl.NewAgentClient(conn)
 		}
 	}

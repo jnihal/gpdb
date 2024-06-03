@@ -13,7 +13,7 @@ func HubCmd() *cobra.Command {
 		Long:   "Start gpservice as an agent process",
 		Hidden: true, // Should not be invoked by the user
 		RunE: func(cmd *cobra.Command, args []string) error {
-			h := hub.New(conf, nil)
+			h := hub.New(conf)
 			err := h.Start()
 			if err != nil {
 				return err

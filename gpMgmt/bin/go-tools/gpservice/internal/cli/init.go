@@ -13,14 +13,15 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpdb/gpservice/constants"
+	. "github.com/greenplum-db/gpdb/gpservice/internal/platform"
 	config "github.com/greenplum-db/gpdb/gpservice/pkg/gpservice_config"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/greenplum"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
 )
 
 var (
-	Platform       = utils.GetPlatform()
-	serviceDir     = Platform.GetDefaultServiceDir()
+	platform       = GetPlatform()
+	serviceDir     = platform.GetDefaultServiceDir()
 	agentPort      int
 	caCertPath     string
 	gpHome         string
@@ -35,8 +36,8 @@ var (
 	GetUlimitSsh = GetUlimitSshFn
 )
 
-func configureCmd() *cobra.Command {
-	configureCmd := &cobra.Command{
+func InitCmd() *cobra.Command {
+	initCmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize gpservice as a systemd service",
 		RunE:  RunConfigure,
@@ -44,19 +45,19 @@ func configureCmd() *cobra.Command {
 
 	viper.AutomaticEnv()
 	// TODO: Adding input validation
-	configureCmd.Flags().IntVar(&agentPort, "agent-port", constants.DefaultAgentPort, `Port on which the agents should listen`)
-	configureCmd.Flags().StringVar(&gpHome, "gphome", "/usr/local/greenplum-db", `Path to GPDB installation`)
-	configureCmd.Flags().IntVar(&hubPort, "hub-port", constants.DefaultHubPort, `Port on which the hub should listen`)
-	configureCmd.Flags().StringVar(&hubLogDir, "log-dir", greenplum.GetDefaultHubLogDir(), `Path to gp hub log directory`)
-	configureCmd.Flags().StringVar(&serviceName, "service-name", constants.DefaultServiceName, `Name for the generated systemd service file`)
+	initCmd.Flags().IntVar(&agentPort, "agent-port", constants.DefaultAgentPort, `Port on which the agents should listen`)
+	initCmd.Flags().StringVar(&gpHome, "gphome", "/usr/local/greenplum-db", `Path to GPDB installation`)
+	initCmd.Flags().IntVar(&hubPort, "hub-port", constants.DefaultHubPort, `Port on which the hub should listen`)
+	initCmd.Flags().StringVar(&hubLogDir, "log-dir", greenplum.GetDefaultHubLogDir(), `Path to gp hub log directory`)
+	initCmd.Flags().StringVar(&serviceName, "service-name", constants.DefaultServiceName, `Name for the generated systemd service file`)
 	// TLS credentials are deliberately left blank if not provided, and need to be filled in by the user
-	configureCmd.Flags().StringVar(&caCertPath, "ca-certificate", "", `Path to SSL/TLS CA certificate`)
-	configureCmd.Flags().StringVar(&serverCertPath, "server-certificate", "", `Path to hub SSL/TLS server certificate`)
-	configureCmd.Flags().StringVar(&serverKeyPath, "server-key", "", `Path to hub SSL/TLS server private key`)
+	initCmd.Flags().StringVar(&caCertPath, "ca-certificate", "", `Path to SSL/TLS CA certificate`)
+	initCmd.Flags().StringVar(&serverCertPath, "server-certificate", "", `Path to hub SSL/TLS server certificate`)
+	initCmd.Flags().StringVar(&serverKeyPath, "server-key", "", `Path to hub SSL/TLS server private key`)
 	// Allow passing a hostfile for "real" use cases or a few host names for tests, but not both
-	configureCmd.Flags().StringArrayVar(&hostnames, "host", []string{}, `Segment hostname`)
-	configureCmd.Flags().StringVar(&hostfilePath, "hostfile", "", `Path to file containing a list of segment hostnames`)
-	configureCmd.MarkFlagsMutuallyExclusive("host", "hostfile")
+	initCmd.Flags().StringArrayVar(&hostnames, "host", []string{}, `Segment hostname`)
+	initCmd.Flags().StringVar(&hostfilePath, "hostfile", "", `Path to file containing a list of segment hostnames`)
+	initCmd.MarkFlagsMutuallyExclusive("host", "hostfile")
 
 	requiredFlags := []string{
 		"ca-certificate",
@@ -64,13 +65,13 @@ func configureCmd() *cobra.Command {
 		"server-key",
 	}
 	for _, flag := range requiredFlags {
-		configureCmd.MarkFlagRequired(flag) // nolint
+		initCmd.MarkFlagRequired(flag) // nolint
 	}
 
-	viper.BindPFlag("gphome", configureCmd.Flags().Lookup("gphome")) // nolint
+	viper.BindPFlag("gphome", initCmd.Flags().Lookup("gphome")) // nolint
 	gpHome = viper.GetString("gphome")
 
-	return configureCmd
+	return initCmd
 }
 
 func RunConfigure(cmd *cobra.Command, args []string) (err error) {
@@ -91,7 +92,7 @@ func RunConfigure(cmd *cobra.Command, args []string) (err error) {
 		return errors.New("hub port and agent port must be different")
 	}
 
-	// Convert file/directory paths to absolute path before writing to gp.Conf file
+	// Convert file/directory paths to absolute path before writing to service configuration file
 	err = resolveAbsolutePaths()
 	if err != nil {
 		return err
@@ -103,13 +104,9 @@ func RunConfigure(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 	}
+
 	if len(hostnames) < 1 {
-		return fmt.Errorf("expected at least one host or hostlist specified")
-	}
-	for _, host := range hostnames {
-		if len(host) < 1 {
-			return fmt.Errorf("empty host name found -- please provide a valid input host name")
-		}
+		return fmt.Errorf("no host name found, please provide a valid input host name using either --host or --hostfile")
 	}
 
 	credentials := &utils.GpCredentials{
@@ -122,23 +119,23 @@ func RunConfigure(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	err = Platform.CreateServiceDir(hostnames, serviceDir, gpHome)
+	err = platform.CreateServiceDir(hostnames, serviceDir, gpHome)
 	if err != nil {
 		return err
 	}
 
-	err = Platform.CreateAndInstallHubServiceFile(gpHome, serviceDir, serviceName)
+	err = platform.CreateAndInstallHubServiceFile(gpHome, serviceDir, serviceName)
 	if err != nil {
 		return err
 	}
 
-	err = Platform.CreateAndInstallAgentServiceFile(hostnames, gpHome, serviceDir, serviceName)
+	err = platform.CreateAndInstallAgentServiceFile(hostnames, gpHome, serviceDir, serviceName)
 	if err != nil {
 		return err
 	}
 
 	currentUser, _ := utils.System.CurrentUser()
-	err = Platform.EnableUserLingering(hostnames, gpHome, currentUser.Username)
+	err = platform.EnableUserLingering(hostnames, gpHome, currentUser.Username)
 	if err != nil {
 		return err
 	}
@@ -220,7 +217,7 @@ func resolveAbsolutePaths() error {
 	for _, path := range paths {
 		p, err := filepath.Abs(*path)
 		if err != nil {
-			return fmt.Errorf("error resolving absolute path for %s: %w", *path, err)
+			return fmt.Errorf("failed to resolve absolute path for %s: %w", *path, err)
 		}
 		*path = p
 	}
@@ -231,7 +228,7 @@ func resolveAbsolutePaths() error {
 func GetHostnames(hostFilePath string) ([]string, error) {
 	contents, err := utils.System.ReadFile(hostFilePath)
 	if err != nil {
-		return []string{}, fmt.Errorf("could not read hostfile: %w", err)
+		return []string{}, fmt.Errorf("failed to read hostfile %s: %w", hostFilePath, err)
 	}
 
 	return strings.Fields(string(contents)), nil

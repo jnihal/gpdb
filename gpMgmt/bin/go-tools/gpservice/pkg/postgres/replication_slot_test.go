@@ -9,8 +9,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/postgres"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
 )
 
 func TestReplicationSlot(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"testing"
 
-	. "github.com/greenplum-db/gpdb/gpservice/testutils/exectest"
+	. "github.com/greenplum-db/gpdb/gpservice/internal/testutils/exectest"
 )
 
 func TestBuiltinMains(t *testing.T) {

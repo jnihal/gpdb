@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/greenplum-db/gpdb/gpservice/internal/testutils"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils"
 )
 
 func TestAskUserYesOrNo(t *testing.T) {

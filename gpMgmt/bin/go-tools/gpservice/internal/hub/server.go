@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os/exec"
-	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -13,32 +12,25 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/reflection"
 	grpcStatus "google.golang.org/grpc/status"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpdb/gpservice/constants"
 	"github.com/greenplum-db/gpdb/gpservice/idl"
-	config "github.com/greenplum-db/gpdb/gpservice/pkg/gpservice_config"
+	. "github.com/greenplum-db/gpdb/gpservice/internal/platform"
+	. "github.com/greenplum-db/gpdb/gpservice/pkg/gpservice_config"
+	"github.com/greenplum-db/gpdb/gpservice/pkg/greenplum"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
-	"github.com/greenplum-db/gpdb/gpservice/testutils/exectest"
 )
 
 var (
-	platform                      = utils.GetPlatform()
-	DialTimeout                   = 3 * time.Second
-	ensureConnectionsAreReadyFunc = ensureConnectionsAreReady
-	execCommand                   = exec.Command
+	platform    = GetPlatform()
+	DialTimeout = 3 * time.Second
 )
 
-type Dialer func(context.Context, string) (net.Conn, error)
-
 type Server struct {
-	*config.Config
+	*Config
 	Conns      []*Connection
-	grpcDialer Dialer
-
 	mutex      sync.Mutex
 	grpcServer *grpc.Server
 	listener   net.Listener
@@ -46,25 +38,20 @@ type Server struct {
 }
 
 type Connection struct {
-	Conn          *grpc.ClientConn
-	AgentClient   idl.AgentClient
-	Hostname      string
-	CancelContext func()
+	Conn        *grpc.ClientConn
+	AgentClient idl.AgentClient
+	Hostname    string
 }
 
-func New(conf *config.Config, grpcDialer Dialer) *Server {
+func New(conf *Config) *Server {
 	h := &Server{
 		Config:     conf,
-		grpcDialer: grpcDialer,
 		finish:     make(chan struct{}, 1),
 	}
 	return h
 }
 
 func (s *Server) Start() error {
-	_, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", s.HubPort)) // TODO: make this "hostname:port" so it can be started from somewhere other than the coordinator host
 	if err != nil {
 		return fmt.Errorf("could not listen on port %d: %w", s.HubPort, err)
@@ -99,7 +86,6 @@ func (s *Server) Start() error {
 		gplog.Info("Received stop command, attempting graceful shutdown")
 		s.grpcServer.GracefulStop()
 		gplog.Info("gRPC server has shut down")
-		cancel()
 		wg.Done()
 	}()
 
@@ -140,22 +126,19 @@ func (s *Server) StartAgents(ctx context.Context, in *idl.StartAgentsRequest) (*
 }
 
 func (s *Server) StartAllAgents() error {
-	remoteCmd := make([]string, 0)
-	for _, host := range s.Hostnames {
-		remoteCmd = append(remoteCmd, "-h", host)
+	gpsshCmd := &greenplum.GpSSH{
+		Hostnames: s.Hostnames,
+		Command:   strings.Join(platform.GetStartAgentCommandString(s.ServiceName), " "),
 	}
-	remoteCmd = append(remoteCmd, platform.GetStartAgentCommandString(s.ServiceName)...)
-	greenplumPathSh := filepath.Join(s.GpHome, "greenplum_path.sh")
-	cmd := execCommand(constants.ShellPath, "-c", fmt.Sprintf("source %s && gpssh %s", greenplumPathSh, strings.Join(remoteCmd, " ")))
-	output, err := cmd.CombinedOutput()
-	strOutput := string(output)
+	out, err := utils.RunGpSourcedCommand(gpsshCmd, s.GpHome)
 	if err != nil {
-		return fmt.Errorf("could not start agents: %s", output)
+		return fmt.Errorf("could not start agents: %s, %w", out, err)
 	}
+
 	// As command is run through gpssh, even if actual command returns error, gpssh still returns as success.
 	// to overcome this we have added check the command output.
-	if strings.Contains(strOutput, "ERROR") || strings.Contains(strOutput, "No such file or directory") {
-		return fmt.Errorf("could not start agents: %s", strOutput)
+	if strings.Contains(out.String(), "ERROR") || strings.Contains(out.String(), "No such file or directory") {
+		return fmt.Errorf("could not start agents: %s, %w", out, err)
 	}
 
 	return nil
@@ -166,48 +149,26 @@ func (s *Server) DialAllAgents() error {
 	defer s.mutex.Unlock()
 
 	if s.Conns != nil {
-		err := ensureConnectionsAreReadyFunc(s.Conns)
-		if err != nil {
-			return err
-		}
-
 		return nil
 	}
 
 	for _, host := range s.Hostnames {
-		ctx, cancelFunc := context.WithTimeout(context.Background(), DialTimeout)
-
 		credentials, err := s.Credentials.LoadClientCredentials()
 		if err != nil {
-			cancelFunc()
 			return err
 		}
 
-		address := fmt.Sprintf("%s:%d", host, s.AgentPort)
-		opts := []grpc.DialOption{
-			grpc.WithBlock(),
-			grpc.WithTransportCredentials(credentials),
-			grpc.WithReturnConnectionError(),
-		}
-		if s.grpcDialer != nil {
-			opts = append(opts, grpc.WithContextDialer(s.grpcDialer))
-		}
-		conn, err := grpc.DialContext(ctx, address, opts...)
+		address := net.JoinHostPort(host, strconv.Itoa(s.AgentPort))
+		conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(credentials))
 		if err != nil {
-			cancelFunc()
 			return fmt.Errorf("could not connect to agent on host %s: %w", host, err)
 		}
-		s.Conns = append(s.Conns, &Connection{
-			Conn:          conn,
-			AgentClient:   idl.NewAgentClient(conn),
-			Hostname:      host,
-			CancelContext: cancelFunc,
-		})
-	}
 
-	err := ensureConnectionsAreReadyFunc(s.Conns)
-	if err != nil {
-		return err
+		s.Conns = append(s.Conns, &Connection{
+			Conn:        conn,
+			AgentClient: idl.NewAgentClient(conn),
+			Hostname:    host,
+		})
 	}
 
 	return nil
@@ -248,7 +209,7 @@ func (s *Server) StatusAgents(ctx context.Context, in *idl.StatusAgentsRequest) 
 			return fmt.Errorf("failed to get agent status on host %s", conn.Hostname)
 		}
 		s := idl.ServiceStatus{
-			Role: "Agent",
+			Role:   "Agent",
 			Host:   conn.Hostname,
 			Status: status.Status,
 			Uptime: status.Uptime,
@@ -275,21 +236,6 @@ func (s *Server) StatusAgents(ctx context.Context, in *idl.StatusAgentsRequest) 
 	}
 
 	return &idl.StatusAgentsReply{Statuses: statuses}, err
-}
-
-func ensureConnectionsAreReady(conns []*Connection) error {
-	hostnames := []string{}
-	for _, conn := range conns {
-		if conn.Conn.GetState() != connectivity.Ready {
-			hostnames = append(hostnames, conn.Hostname)
-		}
-	}
-
-	if len(hostnames) > 0 {
-		return fmt.Errorf("could not ensure connections were ready: unready hosts: %s", strings.Join(hostnames, ","))
-	}
-
-	return nil
 }
 
 func ExecuteRPC(agentConns []*Connection, executeRequest func(conn *Connection) error) error {
@@ -329,21 +275,4 @@ func getConnForHosts(conns []*Connection, hostnames []string) []*Connection {
 	}
 
 	return result
-}
-
-// SetEnsureConnectionsAreReady used only for testing
-func SetEnsureConnectionsAreReady(customFunc func(conns []*Connection) error) {
-	ensureConnectionsAreReadyFunc = customFunc
-}
-
-func ResetEnsureConnectionsAreReady() {
-	ensureConnectionsAreReadyFunc = ensureConnectionsAreReady
-}
-
-func SetExecCommand(command exectest.Command) {
-	execCommand = command
-}
-
-func ResetExecCommand() {
-	execCommand = exec.Command
 }
