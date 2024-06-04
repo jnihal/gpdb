@@ -30,10 +30,10 @@ func (s *Server) ConnectHostList(hostList []string) (map[string]idl.AgentClient,
 
 	for _, address := range hostList {
 		if _, ok := addressConnectionMap[address]; !ok {
-			address := net.JoinHostPort(address, strconv.Itoa(s.AgentPort))
-			conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(credentials))
+			addressUrl := net.JoinHostPort(address, strconv.Itoa(s.AgentPort))
+			conn, err := grpc.NewClient(addressUrl, grpc.WithTransportCredentials(credentials))
 			if err != nil {
-				return nil, fmt.Errorf("could not connect to agent on host %s: %w", address, err)
+				return nil, fmt.Errorf("could not connect to agent on host %s: %w", addressUrl, err)
 			}
 
 			addressConnectionMap[address] = idl.NewAgentClient(conn)

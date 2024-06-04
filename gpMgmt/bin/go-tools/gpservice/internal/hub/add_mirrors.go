@@ -169,7 +169,7 @@ func (s *Server) CreateMirrorSegments(stream hubStreamer, ctx context.Context, g
 				} else {
 					s.mutex.Lock()
 					current++
-					s.mutex.Unlock()
+					defer s.mutex.Unlock()
 
 					gplog.Debug("Successfully modified the postgresql.conf for segment with data directory %s on host %s with port value %d", pair.Mirror.DataDir, pair.Mirror.Hostname, pair.Mirror.Port)
 					stream.StreamProgressMsg(progressLabel, current, progressTotal)
