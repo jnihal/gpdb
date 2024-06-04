@@ -26,6 +26,10 @@ func init() {
 	)
 }
 
+func TestMain(m *testing.M) {
+	os.Exit(exectest.Run(m))
+}
+
 func TestRunExecCommand(t *testing.T) {
 	testhelper.SetupTestLogger()
 

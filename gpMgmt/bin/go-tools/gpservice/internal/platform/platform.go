@@ -305,10 +305,10 @@ func (p GpPlatform) GetServiceStatusMessage(serviceName string) (string, error) 
 		args = args[1:]
 	}
 
-	output, err := utils.System.ExecCommand(p.ServiceCmd, args...).Output()
+	output, err := utils.System.ExecCommand(p.ServiceCmd, args...).CombinedOutput()
 	if err != nil {
 		if err.Error() != "exit status 3" { // 3 = service is stopped
-			return "", err
+			return "", fmt.Errorf("failed to get service status: %s, %w", output, err)
 		}
 	}
 

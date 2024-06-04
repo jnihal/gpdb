@@ -72,7 +72,7 @@ func getAgentStatus(conf *gpservice_config.Config) ([]*idl.ServiceStatus, error)
 
 func displayServiceStatus(outfile io.Writer, statuses []*idl.ServiceStatus) {
 	w := new(tabwriter.Writer)
-	w.Init(outfile, 0, 8, 2, '\t', 0)
+	w.Init(outfile, 10, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ROLE\tHOST\tSTATUS\tPID\tUPTIME")
 
 	for _, s := range statuses {

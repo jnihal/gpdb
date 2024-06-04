@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -118,6 +120,15 @@ func TestDialAllAgents(t *testing.T) {
 		expectedHosts := hubConfig.Hostnames
 		if !reflect.DeepEqual(connectedHosts, expectedHosts) {
 			t.Fatalf("got %+v, want %+v", connectedHosts, expectedHosts)
+		}
+	})
+	
+	t.Run("errors out when connection to agent hosts fail", func(t *testing.T) {
+		hubServer := hub.New(hubConfig)
+		err := hubServer.DialAllAgents(grpc.WithCredentialsBundle(insecure.NewBundle()))
+		expectedErr := "could not connect to agent on host sdw1:"
+		if !strings.HasPrefix(err.Error(), expectedErr) {
+			t.Fatalf("got %s, want %s", err.Error(), expectedErr)
 		}
 	})
 }

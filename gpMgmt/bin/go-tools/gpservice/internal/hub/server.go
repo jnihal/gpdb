@@ -12,6 +12,8 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	grpcStatus "google.golang.org/grpc/status"
 
@@ -75,6 +77,9 @@ func (s *Server) Start() error {
 	s.grpcServer = grpcServer
 	s.listener = listener
 	s.mutex.Unlock()
+	
+	healthcheck := health.NewServer()
+	healthgrpc.RegisterHealthServer(grpcServer, healthcheck)
 
 	idl.RegisterHubServer(grpcServer, s)
 	reflection.Register(grpcServer)
@@ -144,7 +149,7 @@ func (s *Server) StartAllAgents() error {
 	return nil
 }
 
-func (s *Server) DialAllAgents() error {
+func (s *Server) DialAllAgents(opts ...grpc.DialOption) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -159,7 +164,8 @@ func (s *Server) DialAllAgents() error {
 		}
 
 		address := net.JoinHostPort(host, strconv.Itoa(s.AgentPort))
-		conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(credentials))
+		opts = append(opts, grpc.WithTransportCredentials(credentials))
+		conn, err := grpc.NewClient(address, opts...)
 		if err != nil {
 			return fmt.Errorf("could not connect to agent on host %s: %w", host, err)
 		}

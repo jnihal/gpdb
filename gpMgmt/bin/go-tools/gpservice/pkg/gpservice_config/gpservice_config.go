@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/greenplum-db/gpdb/gpservice/idl"
+	"github.com/greenplum-db/gpdb/gpservice/idl/mock_idl"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/greenplum"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
 	"google.golang.org/grpc"
@@ -110,4 +111,14 @@ func connectToHubFunc(conf *Config) (idl.HubClient, error) {
 	}
 
 	return idl.NewHubClient(conn), nil
+}
+
+func SetConnectToHub(hubClient *mock_idl.MockHubClient) {
+	ConnectToHub = func(conf *Config) (idl.HubClient, error) {
+		return hubClient, nil
+	}
+}
+
+func ResetConnectToHub(){
+	ConnectToHub = connectToHubFunc
 }

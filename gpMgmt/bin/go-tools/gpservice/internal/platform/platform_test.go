@@ -589,10 +589,15 @@ func TestGetServiceStatusMessage(t *testing.T) {
 		if output != "" {
 			t.Fatalf("expected empty output, got %q", output)
 		}
+		
+		var expectedErr *exec.ExitError
+		if !errors.As(err, &expectedErr) {
+			t.Errorf("got %T, want %T", err, expectedErr)
+		}
 
-		expectedErr := "exit status 1"
-		if err.Error() != expectedErr {
-			t.Fatalf("got %q, want %q", err, expectedErr)
+		expectedErrPrefix := "failed to get service status:"
+		if !strings.HasPrefix(err.Error(), expectedErrPrefix) {
+			t.Fatalf("got %v, want %s", err, expectedErrPrefix)
 		}
 	})
 }

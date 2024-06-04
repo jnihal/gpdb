@@ -6,11 +6,14 @@ import (
 	"net"
 	"sync"
 
+	"google.golang.org/grpc/health"
+	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
+
 	"github.com/greenplum-db/gpdb/gpservice/idl"
 	. "github.com/greenplum-db/gpdb/gpservice/internal/platform"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 var (
@@ -66,6 +69,9 @@ func (s *Server) Start() error {
 		grpc.Creds(credentials),
 		grpc.UnaryInterceptor(interceptor),
 	)
+	
+	healthcheck := health.NewServer()
+	healthgrpc.RegisterHealthServer(grpcServer, healthcheck)
 
 	s.mutex.Lock()
 	s.grpcServer = grpcServer

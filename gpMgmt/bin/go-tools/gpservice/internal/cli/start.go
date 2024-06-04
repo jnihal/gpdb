@@ -20,6 +20,15 @@ func StartCmd() *cobra.Command {
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start hub and agent services",
+		Example: `Start the hub and agent services
+$ gpservice start
+
+To start only the hub service
+$ gpservice start --hub
+
+To start only the agent service
+$ gpservice start --agent
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if startHub {
 				return startHubService(conf)
@@ -60,7 +69,7 @@ func startAgentService(conf *gpservice_config.Config) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	_, err = client.StartAgents(ctx, &idl.StartAgentsRequest{}, grpc.WaitForReady(true))

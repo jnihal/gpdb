@@ -21,14 +21,13 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpdb/gpservice/idl"
-	"github.com/greenplum-db/gpdb/gpservice/idl/mock_idl"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/gpservice_config"
 	config "github.com/greenplum-db/gpdb/gpservice/pkg/gpservice_config"
 	"github.com/greenplum-db/gpdb/gpservice/pkg/utils"
@@ -363,9 +362,15 @@ func CheckGRPCServerRunning(t *testing.T, port int) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	defer conn.Close()
-
-	if conn.GetState() != connectivity.Idle {
-		t.Fatalf("expected server to be in idle state")
+	
+	client := healthpb.NewHealthClient(conn)
+	resp, err := client.Check(context.Background(), &healthpb.HealthCheckRequest{})
+	if err != nil {
+		t.Fatalf("unexepected error: %v", err)
+	}
+	
+	if resp.Status != healthpb.HealthCheckResponse_SERVING {
+		t.Fatalf("gRPC server not running, state: %s", resp.Status)
 	}
 }
 
@@ -416,17 +421,4 @@ func ExecuteCobraCommandContext(t *testing.T, ctx context.Context, cmd *cobra.Co
 	err := cmd.ExecuteContext(ctx)
 
 	return buf.String(), err
-}
-
-func MockConnectToHub(t *testing.T, hubClient *mock_idl.MockHubClient) func() {
-	t.Helper()
-
-	oldConnectToHub := gpservice_config.ConnectToHub
-	gpservice_config.ConnectToHub = func(conf *gpservice_config.Config) (idl.HubClient, error) {
-		return hubClient, nil
-	}
-
-	return func() {
-		gpservice_config.ConnectToHub = oldConnectToHub
-	}
 }
