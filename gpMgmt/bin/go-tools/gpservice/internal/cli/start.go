@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -69,10 +68,7 @@ func startAgentService(conf *gpservice_config.Config) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	_, err = client.StartAgents(ctx, &idl.StartAgentsRequest{}, grpc.WaitForReady(true))
+	_, err = client.StartAgents(context.Background(), &idl.StartAgentsRequest{}, grpc.WaitForReady(true))
 	if err != nil {
 		return fmt.Errorf("failed to start agent service: %w", err)
 	}

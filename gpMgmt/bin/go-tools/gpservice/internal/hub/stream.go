@@ -2,6 +2,7 @@ package hub
 
 import (
 	"os/exec"
+	"sync"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpdb/gpservice/idl"
@@ -91,6 +92,7 @@ func (h *HubStream) StreamExecCommand(cmd *exec.Cmd, gpHome string) error {
 		return err
 	}
 
+	var mu sync.Mutex
 	// stream the stdout continuously
 	go func() {
 		buf := make([]byte, 1024)
@@ -101,7 +103,9 @@ func (h *HubStream) StreamExecCommand(cmd *exec.Cmd, gpHome string) error {
 			}
 
 			output := string(buf[:n])
+			mu.Lock()
 			h.StreamStdoutMsg(output)
+			mu.Unlock()
 		}
 	}()
 
@@ -115,7 +119,9 @@ func (h *HubStream) StreamExecCommand(cmd *exec.Cmd, gpHome string) error {
 			}
 
 			output := string(buf[:n])
+			mu.Lock()
 			h.StreamStdoutMsg(output)
+			mu.Unlock()
 		}
 	}()
 

@@ -261,7 +261,7 @@ func (s *Server) ValidateEnvironment(ctx context.Context, stream hubStreamer, re
 
 		s.mutex.Lock()
 		current++
-		s.mutex.Unlock()
+		defer s.mutex.Unlock()
 
 		stream.StreamProgressMsg(progressLabel, current, progressTotal)
 		gplog.Debug(fmt.Sprintf("Successfully completed validation for host: %s", conn.Hostname))
@@ -403,7 +403,7 @@ func (s *Server) CreateSegments(ctx context.Context, stream hubStreamer, segs []
 				} else {
 					s.mutex.Lock()
 					current++
-					s.mutex.Unlock()
+					defer s.mutex.Unlock()
 
 					stream.StreamProgressMsg(progressLabel, current, progressTotal)
 					gplog.Debug(fmt.Sprintf("Successfully created primary segment: %s", seg))
